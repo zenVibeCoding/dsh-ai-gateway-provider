@@ -25,7 +25,7 @@ export const name = 'ai-gateway';
 export const inject = ['llm'];
 
 const ROUTE_PREFIX = '/ai-gateway/api/';
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 const ENDPOINT_TYPES = ['openai', 'anthropic', 'openai-response', 'gemini'];
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -45,6 +45,7 @@ const Channel = z.object({
   apiKeyEnv: z.string().role('credential-ref').description('Credential holding this gateway\'s token.'),
   headers: z.dict(z.string()).description('Extra HTTP headers for this gateway only.'),
   backend: Backend.description('What the probe found when this gateway was saved.'),
+  enabledModels: z.array(z.string()).default(undefined).description('Chat models offered in the picker. Unset offers every chat model the gateway lists.'),
 });
 
 export const Config = z.object({
@@ -106,8 +107,8 @@ export function apply(ctx, config) {
       baseURL: ch.baseURL,
       apiKeyRef: credentialRef(ch.apiKeyEnv),
       overrides: {},
-      enabledModels: undefined,
-      overridesRev: fingerprint(ch.id),
+      enabledModels: Array.isArray(ch.enabledModels) ? ch.enabledModels : undefined,
+      overridesRev: fingerprint(`${ch.id}|${JSON.stringify(ch.enabledModels ?? null)}`),
       // Only gateways known to serve the pricing page are asked for it.
       fetchPricing: ch.backend?.family === 'new-api',
       endpointPriority: raw.endpointPriority?.length ? raw.endpointPriority : DEFAULT_ENDPOINT_PRIORITY,
@@ -272,6 +273,40 @@ export function apply(ctx, config) {
     changed: () => { channelsMemo = undefined; catalogs.invalidate(); quotas.clear(); errors.clear(); ensureRegistration(); },
   });
 
+  // ------------------------------------------------------------ model management
+  /**
+   * Every chat model one gateway lists, whatever its saved selection says, with the
+   * facts the picker would show. `enabled` reflects the saved list (all when unset).
+   */
+  const gatewayModels = async ({ id }) => {
+    const ch = structuredClone(channels().list.find((c) => c.id === id));
+    if (!ch) throw Object.assign(new Error('unknown gateway'), { status: 404 });
+    const conn = { ...connFor(ch), enabledModels: undefined, channelId: `${ch.id}#all`, overridesRev: fingerprint(`${ch.id}|all`) };
+    const apiKey = await keyFor(ch);
+    const catalog = await catalogs.get({ ...conn, keyFingerprint: fingerprint(apiKey) }, apiKey, { force: true });
+    const enabled = Array.isArray(ch.enabledModels) ? new Set(ch.enabledModels) : undefined;
+    const listed = new Set(catalog.gatewayIds ?? []);
+    const chat = catalog.entries.filter((e) => e.kind === 'chat');
+    return {
+      id: ch.id,
+      mode: enabled ? 'list' : 'all',
+      fetchedAt: catalog.fetchedAt,
+      models: chat.map((e) => ({
+        id: e.id,
+        name: e.name,
+        enabled: enabled ? enabled.has(e.id) : true,
+        // A model with no capability data runs on defaults (128k context, text only).
+        known: Boolean(e.source?.modelsDev),
+        contextWindow: e.contextWindow ?? null,
+        reasoning: e.reasoning,
+        input: e.input,
+      })),
+      // Saved ids the gateway stopped listing: kept in config, never offered in the picker.
+      missing: enabled ? [...enabled].filter((mid) => !listed.has(mid)) : [],
+      otherCount: catalog.entries.filter((e) => e.kind !== 'chat').length,
+    };
+  };
+
   // ------------------------------------------------------------ snapshot
   const withTimeout = async (p, ms, fallback) => {
     let timer;
@@ -306,6 +341,8 @@ export function apply(ctx, config) {
       name: c.name,
       baseURL: gatewayRoot(c.baseURL),
       backend: c.backend ?? null,
+      modelMode: Array.isArray(c.enabledModels) ? 'list' : 'all',
+      enabledCount: Array.isArray(c.enabledModels) ? c.enabledModels.length : null,
       keyConfigured: await keyConfigured(c),
       active: c.id === state.active?.id,
       quota: await withTimeout(quotaOf(c, { force }), 6_000, { status: 'pending' }),
@@ -330,6 +367,8 @@ export function apply(ctx, config) {
     'POST channel/save': (body) => channelService.run('save', body),
     'POST channel/activate': (body) => channelService.run('activate', body),
     'POST channel/delete': (body) => channelService.run('delete', body),
+    'POST channel/models': (body) => channelService.run('models', body),
+    'POST models/list': (body) => gatewayModels(body),
   };
 
   ctx.inject(['webServer'], (wctx) => {

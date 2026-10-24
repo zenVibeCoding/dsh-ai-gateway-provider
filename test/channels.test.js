@@ -157,3 +157,33 @@ test('backend findings omit absent fields instead of writing nulls', () => {
   const b = backendOf({ backend: { family: 'unknown' }, models: { count: 3 } });
   assert.deepEqual(Object.keys(b).sort(), ['checkedAt', 'family', 'modelCount']);
 });
+
+test('picking models: a list narrows the picker, "all" removes the list, bad input is refused', async () => {
+  const gw = await gateway();
+  const h = host();
+  try {
+    const { channelId } = await h.service.run('save', { revision: h.revision, baseURL: gw.base, apiKey: KEY });
+    assert.equal(resolveChannels(h.value).list[0].enabledModels, undefined, 'a new gateway offers every model');
+
+    await h.service.run('models', { revision: h.revision, id: channelId, mode: 'list', models: ['gpt-6-sol', ' gpt-6-sol ', 'claude-opus-5-5'] });
+    assert.deepEqual(resolveChannels(h.value).list[0].enabledModels, ['gpt-6-sol', 'claude-opus-5-5'], 'trimmed and de-duplicated, order kept');
+
+    await assert.rejects(h.service.run('models', { revision: h.revision, id: channelId, mode: 'list', models: [] }), (e) => e.code === 'empty-models');
+    await assert.rejects(h.service.run('models', { revision: h.revision, id: channelId, mode: 'list', models: ['__proto__'] }), (e) => e.status === 400);
+    await assert.rejects(h.service.run('models', { revision: h.revision, id: channelId, mode: 'some' }), (e) => e.status === 400);
+
+    await h.service.run('models', { revision: h.revision, id: channelId, mode: 'all' });
+    assert.equal('enabledModels' in h.value.channels[0], false, '"all" removes the field instead of storing an empty list');
+  } finally { await gw.close(); }
+});
+
+test('editing the gateway keeps its model selection', async () => {
+  const gw = await gateway();
+  const h = host();
+  try {
+    const { channelId } = await h.service.run('save', { revision: h.revision, baseURL: gw.base, apiKey: KEY });
+    await h.service.run('models', { revision: h.revision, id: channelId, mode: 'list', models: ['gpt-6-sol'] });
+    await h.service.run('save', { revision: h.revision, id: channelId, name: 'Renamed', baseURL: gw.base });
+    assert.deepEqual(resolveChannels(h.value).list[0].enabledModels, ['gpt-6-sol']);
+  } finally { await gw.close(); }
+});

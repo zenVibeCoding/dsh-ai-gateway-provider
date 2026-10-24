@@ -28,6 +28,13 @@ window.__ModuleLoader__.load({
       code_unauthorized: '令牌被拒绝（401/403）', 'code_not-found': '接口不存在（404）', code_html: '返回的是网页，不是 API', code_redirect: '地址发生了重定向，请填写最终地址',
       code_network: '无法连接到这个地址', code_timeout: '请求超时', code_http: '网关返回错误', code_address: '地址格式不对', 'code_key-required': '需要填写令牌',
       kind_new_api: 'New API 令牌额度', kind_litellm: 'LiteLLM 预算', kind_openai_billing: 'OpenAI 风格账单接口',
+      manageModels: '管理模型', modelsAll: '全部 {0} 个模型', modelsPicked: '已选 {0} 个模型',
+      mmTitle: '管理模型', mmHint: '勾选的模型会出现在对话的模型选择器里。全部勾选时，网关以后新增的模型也会自动出现。',
+      mmSearch: '搜索模型', mmAll: '全选', mmNone: '全不选', mmKnownOnly: '只看有资料的模型', mmCount: '已选 {0} / {1}',
+      mmUnknown: '无资料', mmUnknownTip: 'models.dev 没有这个模型的资料：按默认 128K 上下文、纯文本处理，可能不准。',
+      mmReasoning: '推理', mmImage: '识图', mmMissing: '{0} 个已选模型网关已不再提供，已自动从选择器隐藏。',
+      mmEmpty: '至少选一个模型', mmNoMatch: '没有匹配的模型', mmSaved: '已更新「{0}」的模型', mmLoading: '正在读取网关的模型…',
+      mmOther: '另有 {0} 个生图、视频等模型不属于对话模型，不在这里。',
       routeWaiting: '模型路由暂时被占用：{0}',
     };
     const EN = {
@@ -51,6 +58,13 @@ window.__ModuleLoader__.load({
       code_unauthorized: 'Token rejected (401/403)', 'code_not-found': 'Endpoint not found (404)', code_html: 'Returned a web page, not an API', code_redirect: 'The address redirects; enter the final address',
       code_network: 'Cannot reach this address', code_timeout: 'Timed out', code_http: 'The gateway returned an error', code_address: 'The address is not valid', 'code_key-required': 'Enter the token',
       kind_new_api: 'New API token quota', kind_litellm: 'LiteLLM budget', kind_openai_billing: 'OpenAI-style billing routes',
+      manageModels: 'Manage models', modelsAll: 'All {0} models', modelsPicked: '{0} models picked',
+      mmTitle: 'Manage models', mmHint: 'Checked models appear in the chat model picker. With everything checked, models the gateway adds later appear automatically.',
+      mmSearch: 'Search models', mmAll: 'Select all', mmNone: 'Clear', mmKnownOnly: 'Only models with capability data', mmCount: '{0} / {1} selected',
+      mmUnknown: 'No data', mmUnknownTip: 'models.dev has no data for this model: it runs with a 128K context and text only, which may be wrong.',
+      mmReasoning: 'Reasoning', mmImage: 'Vision', mmMissing: '{0} picked models are no longer listed by the gateway and are hidden from the picker.',
+      mmEmpty: 'Pick at least one model', mmNoMatch: 'No matching models', mmSaved: 'Updated models for “{0}”', mmLoading: 'Reading the gateway models…',
+      mmOther: '{0} image, video or other models are not chat models and are not listed here.',
       routeWaiting: 'Model route is busy: {0}',
     };
     let translate;
@@ -131,6 +145,21 @@ window.__ModuleLoader__.load({
       .aig-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--ok)}
       .aig-result.bad .aig-dot{background:var(--bad)}
       .aig-result ul{margin:4px 0 0;padding-left:17px;color:var(--sub)}
+      .aig-mm{display:flex;flex-direction:column;max-height:calc(100vh - 48px)}
+      .aig-mm .aig-dialog-body{flex:1;min-height:0;display:flex;flex-direction:column;padding-bottom:0}
+      .aig-mm-tools{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0 8px}
+      .aig-mm-tools .aig-input{flex:1 1 200px}
+      .aig-mm-filter{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);white-space:nowrap;cursor:pointer}
+      .aig-mm-list{flex:1;min-height:120px;max-height:52vh;overflow:auto;border:1px solid var(--l1);border-radius:8px}
+      .aig-mm-row{display:flex;align-items:center;gap:10px;padding:7px 11px;min-width:0;cursor:pointer}
+      .aig-mm-row+.aig-mm-row{border-top:1px solid var(--l1)}
+      .aig-mm-row:hover{background:var(--bg2)}
+      .aig-mm-row input{flex-shrink:0;margin:0;accent-color:var(--br);width:14px;height:14px}
+      .aig-mm-name{flex:1;min-width:0;font-size:12.5px;overflow-wrap:anywhere}
+      .aig-mm-tags{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px;flex-shrink:0;max-width:45%}
+      .aig-tag{font-size:10.5px;padding:0 6px;border-radius:4px;background:var(--bg2);color:var(--sub);white-space:nowrap}
+      .aig-tag.warn{color:var(--dsw-alias-state-warn-primary,#b45309);background:color-mix(in srgb,var(--dsw-alias-state-warn-primary,#d97706) 10%,transparent)}
+      .aig-mm-empty{padding:18px;text-align:center;color:var(--sub);font-size:12px}
       .aig-spin{animation:aig-spin 1s linear infinite}@keyframes aig-spin{to{transform:rotate(360deg)}}
       @media(prefers-reduced-motion:reduce){.aig-spin{animation:none}}
     `;
@@ -272,6 +301,91 @@ window.__ModuleLoader__.load({
             busy === 'save' ? h(Icon, { name: 'spin', className: 'aig-spin' }) : h(Icon, { name: 'check' }), t(busy === 'save' ? 'saving' : 'save'))));
     }
 
+
+    // ------------------------------------------------------------ manage models dialog
+    function ModelsDialog({ gw, onClose, onSaved }) {
+      const id = useId();
+      const ref = useRef();
+      const [data, setData] = useState(null);
+      const [error, setError] = useState('');
+      const [picked, setPicked] = useState(null);
+      const [query, setQuery] = useState('');
+      const [knownOnly, setKnownOnly] = useState(false);
+      const [busy, setBusy] = useState(false);
+
+      useEffect(() => {
+        const dialog = ref.current;
+        if (dialog && !dialog.open) dialog.showModal?.();
+        const controller = new AbortController();
+        api('models/list', { id: gw.id }, controller.signal)
+          .then((value) => { setData(value); setPicked(new Set(value.models.filter((m) => m.enabled).map((m) => m.id))); })
+          .catch((e) => { if (e.name !== 'AbortError') setError(e.message); });
+        return () => controller.abort();
+      }, []);
+      useEffect(() => {
+        const dialog = ref.current;
+        const cancel = (e) => { e.preventDefault(); if (!busy) onClose(); };
+        dialog?.addEventListener('cancel', cancel);
+        return () => dialog?.removeEventListener('cancel', cancel);
+      }, [busy]);
+
+      const all = data?.models ?? [];
+      const q = query.trim().toLowerCase();
+      const visible = all.filter((m) => (!knownOnly || m.known) && (!q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)));
+      const toggle = (mid) => setPicked((prev) => { const next = new Set(prev); if (next.has(mid)) next.delete(mid); else next.add(mid); return next; });
+      // Bulk buttons act on what the filter shows, so "select all" after a search is predictable.
+      const bulk = (on) => setPicked((prev) => { const next = new Set(prev); for (const m of visible) { if (on) next.add(m.id); else next.delete(m.id); } return next; });
+
+      const save = async () => {
+        if (!picked?.size) { setError(t('mmEmpty')); return; }
+        setBusy(true); setError('');
+        try {
+          // Everything checked = "all": models the gateway adds later appear on their own.
+          const everything = all.length > 0 && all.every((m) => picked.has(m.id));
+          await store.mutate('channel/models', everything
+            ? { id: gw.id, mode: 'all' }
+            : { id: gw.id, mode: 'list', models: all.filter((m) => picked.has(m.id)).map((m) => m.id) });
+          onSaved();
+        } catch (e) {
+          setError(e.status === 409 ? t('conflict') : e.code === 'empty-models' ? t('mmEmpty') : e.message);
+        } finally { setBusy(false); }
+      };
+
+      return h('dialog', { ref, className: 'aig aig-dialog aig-mm', 'aria-labelledby': `${id}-title` },
+        h(Styles),
+        h('div', { className: 'aig-dialog-head' },
+          h('div', { style: { minWidth: 0 } }, h('h3', { id: `${id}-title` }, t('mmTitle')), h('div', { className: 'aig-sub', style: { overflowWrap: 'anywhere' } }, gw.name)),
+          h('button', { type: 'button', className: 'aig-ghost', onClick: onClose, disabled: busy, 'aria-label': t('cancel') }, h(Icon, { name: 'close' }))),
+        h('div', { className: 'aig-dialog-body' },
+          h('div', { className: 'aig-sub' }, t('mmHint')),
+          !data && !error && h('div', { className: 'aig-mm-empty' }, h(Icon, { name: 'spin', className: 'aig-spin' }), ' ', t('mmLoading')),
+          data && h(React.Fragment, null,
+            h('div', { className: 'aig-mm-tools' },
+              h('div', { className: 'aig-input' }, h('input', { value: query, placeholder: t('mmSearch'), 'aria-label': t('mmSearch'), spellCheck: false, onChange: (e) => setQuery(e.target.value) })),
+              h('button', { type: 'button', className: 'aig-btn small', onClick: () => bulk(true), disabled: busy || !visible.length }, t('mmAll')),
+              h('button', { type: 'button', className: 'aig-btn small', onClick: () => bulk(false), disabled: busy || !visible.length }, t('mmNone')),
+              h('label', { className: 'aig-mm-filter' }, h('input', { type: 'checkbox', checked: knownOnly, onChange: (e) => setKnownOnly(e.target.checked) }), t('mmKnownOnly'))),
+            data.missing.length > 0 && h('div', { className: 'aig-hint', style: { marginBottom: 8 } }, t('mmMissing', data.missing.length)),
+            h('div', { className: 'aig-mm-list', role: 'group', 'aria-label': t('mmTitle') },
+              visible.length === 0
+                ? h('div', { className: 'aig-mm-empty' }, t('mmNoMatch'))
+                : visible.map((m) => h('label', { key: m.id, className: 'aig-mm-row' },
+                  h('input', { type: 'checkbox', checked: picked.has(m.id), disabled: busy, onChange: () => toggle(m.id) }),
+                  h('span', { className: 'aig-mm-name', lang: 'en' }, m.name),
+                  h('span', { className: 'aig-mm-tags' },
+                    !m.known && h('span', { className: 'aig-tag warn', title: t('mmUnknownTip') }, t('mmUnknown')),
+                    m.reasoning && h('span', { className: 'aig-tag' }, t('mmReasoning')),
+                    m.input?.includes('image') && h('span', { className: 'aig-tag' }, t('mmImage')),
+                    m.contextWindow && h('span', { className: 'aig-tag' }, m.contextWindow >= 1_000_000 ? `${Math.round(m.contextWindow / 100_000) / 10}M` : `${Math.round(m.contextWindow / 1000)}K`))))),
+            data.otherCount > 0 && h('div', { className: 'aig-hint', style: { marginTop: 8 } }, t('mmOther', data.otherCount))),
+          error && h('div', { className: 'aig-error', role: 'alert', style: { marginTop: 8 } }, error)),
+        h('div', { className: 'aig-dialog-foot' },
+          h('span', { className: 'aig-sub' }, data ? t('mmCount', picked?.size ?? 0, all.length) : ''),
+          h('button', { type: 'button', className: 'aig-btn', onClick: onClose, disabled: busy }, t('cancel')),
+          h('button', { type: 'button', className: 'aig-btn primary', onClick: save, disabled: busy || !data || !picked?.size },
+            busy ? h(Icon, { name: 'spin', className: 'aig-spin' }) : h(Icon, { name: 'check' }), t(busy ? 'saving' : 'save'))));
+    }
+
     // ------------------------------------------------------------ gateway card
     function QuotaLine({ quota }) {
       if (!quota || quota.status === 'none') return h('span', null, t('quotaNone'));
@@ -286,7 +400,7 @@ window.__ModuleLoader__.load({
         quota.account && h('span', null, `${t('account')} `, h('b', null, `${fmt(quota.account.remaining)}${unit}`)));
     }
 
-    function GatewayCard({ gw, onEdit, onToast }) {
+    function GatewayCard({ gw, onEdit, onModels, onToast }) {
       const [confirm, setConfirm] = useState(false);
       const [busy, setBusy] = useState(false);
       const run = async (path, toast) => {
@@ -304,11 +418,14 @@ window.__ModuleLoader__.load({
           h('div', { className: 'aig-url' }, gw.baseURL)),
         h('div', { className: 'aig-facts' },
           h('span', null, backend),
-          gw.backend?.modelCount != null && h('span', null, t('models', gw.backend.modelCount)),
+          gw.modelMode === 'list'
+            ? h('span', null, t('modelsPicked', gw.enabledCount))
+            : gw.backend?.modelCount != null && h('span', null, t('modelsAll', gw.backend.modelCount)),
           h(QuotaLine, { quota: gw.quota })),
         !gw.keyConfigured && h('div', { className: 'aig-warn' }, t('noKey')),
         h('div', { className: 'aig-gw-actions' },
           !gw.active && h('button', { type: 'button', className: 'aig-btn small', disabled: busy, onClick: () => run('channel/activate', t('activated', gw.name)) }, t('setActive')),
+          h('button', { type: 'button', className: 'aig-btn small', disabled: busy || !gw.keyConfigured, onClick: onModels }, t('manageModels')),
           h('button', { type: 'button', className: 'aig-btn small', disabled: busy, onClick: onEdit }, t('edit')),
           confirm
             ? h(React.Fragment, null,
@@ -357,14 +474,19 @@ window.__ModuleLoader__.load({
           h('h3', null, t('emptyTitle')),
           h('div', { className: 'aig-sub' }, t('emptyBody')),
           h('div', { className: 'aig-actions', style: { marginTop: 12 } }, addButton)),
-        gateways.map((gw) => h(GatewayCard, { key: gw.id, gw, onEdit: () => setDialog({ mode: 'edit', gw }), onToast: setToast })),
+        gateways.map((gw) => h(GatewayCard, { key: gw.id, gw, onEdit: () => setDialog({ mode: 'edit', gw }), onModels: () => setDialog({ mode: 'models', gw }), onToast: setToast })),
         state?.route?.status === 'waiting' && h('div', { className: 'aig-warn' }, t('routeWaiting', state.route.error ?? '')),
         gateways.length > 0 && h(React.Fragment, null,
           h('div', { className: 'aig-section' }, t('inPicker')),
           h(ModelsCard, { models: state.models, routeName, catalogError: state.errors?.catalog?.message })),
         h('div', { className: 'aig-section' }, t('howTitle')),
         h('div', { className: 'aig-card' }, h('ol', { className: 'aig-steps' }, h('li', null, t('how1')), h('li', null, t('how2')), h('li', null, t('how3', routeName)))),
-        dialog && h(GatewayDialog, {
+        dialog?.mode === 'models' && h(ModelsDialog, {
+          gw: dialog.gw,
+          onClose: () => setDialog(null),
+          onSaved: () => { const label = dialog.gw.name; setDialog(null); setToast(t('mmSaved', label)); },
+        }),
+        dialog && dialog.mode !== 'models' && h(GatewayDialog, {
           initial: dialog.mode === 'edit' ? dialog.gw : null,
           onClose: () => setDialog(null),
           onSaved: (label) => { setDialog(null); setToast(t('saved', label)); },
