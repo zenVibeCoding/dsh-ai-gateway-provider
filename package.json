@@ -1,6 +1,6 @@
 {
   "name": "dsh-ai-gateway-provider",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Standard-first gateway provider for DeepSeek Harness: any OpenAI-compatible endpoint works, and known backends also report quota.",
   "license": "MIT",
   "author": "zenVibeCoding",

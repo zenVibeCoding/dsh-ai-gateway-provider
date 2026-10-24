@@ -24,6 +24,7 @@ window.__ModuleLoader__.load({
       credentialSet: '凭据已设置', credentialMissing: '未设置凭据', failed: '连接异常', loading: '正在加载…', retry: '重试',
       sidebarBalanceHint: '点击刷新额度',
       loadFailed: '无法读取渠道数据', loadFailedHint: '如果刚重启过 DSH，请确认插件已加载后再试。',
+      groupByVendor: '按厂商分组', groupOther: '其他', groupPrefixHint: '未识别厂商，按路径前缀归组', groupTested: (ok, n) => `已测 ${n} · 可用 ${ok}`,
       genericGateway: 'OpenAI 兼容网关', quotaNone: '无额度接口', healthNoQuota: '这个网关没有额度接口，连接状态请点「测试连接」',
       noGateways: '还没有网关', noGatewaysHint: '添加一个 OpenAI 兼容网关，保存后它的模型会出现在对话的模型选择器里（「AI Gateway」）。',
       cached: '已缓存', balanceUnavailable: '额度暂不可用', notFetched: '待查询', used: '已用', remaining: '剩余',
@@ -116,6 +117,7 @@ window.__ModuleLoader__.load({
       credentialSet: 'Credential set', credentialMissing: 'No credential', failed: 'Connection issue', loading: 'Loading…', retry: 'Retry',
       sidebarBalanceHint: 'Click to refresh the quota',
       loadFailed: 'Could not read gateway data', loadFailedHint: 'If DSH was just restarted, make sure the plugin is loaded and try again.',
+      groupByVendor: 'Group by vendor', groupOther: 'Other', groupPrefixHint: 'vendor not recognised, grouped by path prefix', groupTested: (ok, n) => `${n} tested · ${ok} working`,
       genericGateway: 'OpenAI-compatible gateway', quotaNone: 'No quota endpoint', healthNoQuota: 'This gateway has no quota endpoint; use Test connection to check it',
       noGateways: 'No gateways yet', noGatewaysHint: 'Add an OpenAI-compatible gateway. Once saved, its models appear in the chat model picker under “AI Gateway”.',
       cached: 'Cached', balanceUnavailable: 'Quota unavailable', notFetched: 'Not queried', used: 'Used', remaining: 'Remaining',
@@ -213,7 +215,7 @@ window.__ModuleLoader__.load({
       search: 'M21 21l-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',
       grid: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
       image: 'M3 4h18v16H3zM3 16l6-6 5 5 3-3 4 4M16 8h.01', video: 'M3 5h18v14H3zM8 5v14M16 5v14M3 9h5M3 15h5M16 9h5M16 15h5',
-      arrow: 'M5 12h14m-5-5 5 5-5 5', trash: 'M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',
+      arrow: 'M5 12h14m-5-5 5 5-5 5', chevron: 'm9 6 6 6-6 6', trash: 'M3 6h18M9 6V3h6v3M6 6l1 15h10l1-15M10 10v7M14 10v7',
       info: 'M12 10v7M12 7h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0',
       download: 'M12 4v12m-5-5 5 5 5-5M4 20h16', play: 'M7 4v16l13-8z', bolt: 'M13 2 4 14h7l-1 8 9-12h-7z',
       stopwatch: 'M9 2h6M12 2v3M18 6l2-2M20 13a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM12 9v4l3 2',
@@ -266,8 +268,10 @@ window.__ModuleLoader__.load({
       ["minimax", "MiniMax", /minimax|abab|hailuo/],
       ["hunyuan", "Tencent", /hunyuan|tencent/],
     ];
+    /** Model id without a relay/route prefix: "devin/gpt-5-6-terra" → "gpt-5-6-terra". */
+    function bareModelId(id) { return String(id || "").split("/").pop(); }
     function vendorOf(vendor, modelId) {
-      for (const text of [vendor, modelId]) {
+      for (const text of [vendor, bareModelId(modelId), modelId]) {
         const raw = String(text || "").toLowerCase();
         if (!raw) continue;
         const hit = VENDOR_RULES.find(([, , re]) => re.test(raw));
@@ -276,6 +280,28 @@ window.__ModuleLoader__.load({
       return { key: null, label: vendor || modelId || "" };
     }
     let vendorSeq = 0;
+    /**
+     * Group key for the model table: the vendor when known; otherwise the relay prefix
+     * ("devin/…" → "devin"), so unrecognised models from one route still sit together.
+     */
+    function groupOf(m) {
+      const v = vendorOf(m.vendor, m.id);
+      if (v.key) return { key: v.key, label: VENDOR_RULES.find(([k]) => k === v.key)?.[1] ?? v.label, known: true };
+      const prefix = String(m.id || "").includes("/") ? String(m.id).split("/")[0] : "";
+      return prefix ? { key: `prefix:${prefix}`, label: prefix, known: false } : { key: "other", label: null, known: false };
+    }
+    const nameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+    /** Groups biggest first, then by name; unknown groups last; rows by bare name with numbers in order. */
+    function groupModels(list) {
+      const groups = new Map();
+      for (const m of list) {
+        const g = groupOf(m);
+        if (!groups.has(g.key)) groups.set(g.key, { ...g, models: [] });
+        groups.get(g.key).models.push(m);
+      }
+      for (const g of groups.values()) g.models.sort((a, b) => nameCollator.compare(bareModelId(a.name || a.id), bareModelId(b.name || b.id)) || nameCollator.compare(a.id, b.id));
+      return [...groups.values()].sort((a, b) => (a.known === b.known ? 0 : a.known ? -1 : 1) || (a.key === "other") - (b.key === "other") || b.models.length - a.models.length || nameCollator.compare(a.label || "", b.label || ""));
+    }
     function VendorIcon({ vendor, modelId, size = 18 }) {
       const { key, label } = vendorOf(vendor, modelId);
       // Gradient ids must be unique per rendered instance, or several icons on one page collide.
@@ -430,6 +456,17 @@ window.__ModuleLoader__.load({
       .nas-levels-custom input{flex:1;min-width:0}
       .nas-levels-back{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;flex-shrink:0;border:1px solid var(--nas-line);border-radius:6px;background:var(--dsw-alias-bg-base);color:var(--nas-sub);cursor:pointer}
       .nas-levels-back:hover:not(:disabled){color:var(--nas-text);border-color:var(--nas-brand)}
+      .nas-group-toggle{display:inline-flex;align-items:center;gap:6px;margin-left:auto;border:1px solid var(--nas-line);background:var(--nas-bg);color:var(--nas-sub);border-radius:6px;padding:4px 9px;font-size:12px}
+      .nas-group-toggle[aria-pressed=true]{color:var(--nas-text);border-color:var(--dsw-alias-border-l2);background:var(--nas-raised)}
+      .nas-group-head{display:flex;align-items:center;gap:8px;width:100%;border:0;border-top:1px solid var(--nas-line);background:var(--nas-raised);color:var(--nas-text);padding:7px 14px;font-size:12px;font-weight:600;text-align:left;position:sticky;top:0;z-index:1}
+      .nas-group-head:hover{background:color-mix(in srgb,var(--nas-raised) 70%,var(--nas-line))}
+      .nas-group-caret{display:inline-flex;width:12px;color:var(--nas-sub);transition:transform .12s}
+      .nas-group-caret.open{transform:rotate(90deg)}
+      .nas-group-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .nas-group-hint{font-weight:400;color:var(--nas-sub);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .nas-group-tests{margin-left:auto;font-weight:400;color:var(--nas-sub);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+      .nas-group-head .nas-vendor-mark{flex-shrink:0}
+      @media(prefers-reduced-motion:reduce){.nas-group-caret{transition:none}}
       /* Tooltips: instant, themed, keyboard accessible. */
       .nas [data-tip]{position:relative}
       .nas [data-tip]::after{content:attr(data-tip);position:absolute;z-index:60;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);width:max-content;max-width:270px;padding:6px 9px;border-radius:7px;border:1px solid var(--nas-line);background:var(--dsw-alias-bg-overlay);color:var(--nas-text);font-size:11px;font-weight:400;line-height:1.55;text-align:left;white-space:pre-line;box-shadow:0 8px 24px color-mix(in srgb,var(--dsw-alias-label-primary) 16%,transparent);opacity:0;pointer-events:none;transition:opacity .12s}
@@ -1177,6 +1214,10 @@ window.__ModuleLoader__.load({
       const t = useT(); useTests();
       const [search, setSearch] = useState(''); const [kind, setKind] = useState('all');
       const [dialog, setDialogState] = useState(); const [undo, setUndo] = useState(); const a = useAction();
+      const [grouped, setGrouped] = useState(() => { try { return localStorage.getItem('ai-gateway.groupModels') !== 'off'; } catch { return true; } });
+      const [collapsed, setCollapsed] = useState(() => new Set());
+      const toggleGrouped = () => setGrouped((on) => { try { localStorage.setItem('ai-gateway.groupModels', on ? 'off' : 'on'); } catch { /* private mode */ } return !on; });
+      const toggleGroup = (key) => setCollapsed((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; });
       const setDialog = (value) => setDialogState(value ? { ...value, channel: structuredClone(channel), revision: state.revision } : undefined);
       const view = useChannelModels(state, channel.id);
       const models = view.models?.entries || [];
@@ -1210,12 +1251,14 @@ window.__ModuleLoader__.load({
             h(Button, { small: true, icon: 'bolt', onClick: () => setDialog({ type: 'batch', models: testable }), disabled: store.busy }, t('batchTest')),
             h(Button, { small: true, icon: 'plus', tone: 'ghost', onClick: () => setDialog({ type: 'manual' }), disabled: store.busy }, t('addManual')))),
         h('div', { className: 'nas-toolbar', style: { marginTop: -4 } },
-          h('div', { className: 'nas-filter', role: 'group', 'aria-label': t('kind') }, kinds.map((k) => h('button', { key: k, type: 'button', 'aria-pressed': kind === k, onClick: () => setKind(k) }, t(k), ' ', h('span', { className: 'nas-count' }, k === 'all' ? models.length : models.filter((m) => m.kind === k).length))))),
+          h('div', { className: 'nas-filter', role: 'group', 'aria-label': t('kind') }, kinds.map((k) => h('button', { key: k, type: 'button', 'aria-pressed': kind === k, onClick: () => setKind(k) }, t(k), ' ', h('span', { className: 'nas-count' }, k === 'all' ? models.length : models.filter((m) => m.kind === k).length)))),
+          h('button', { type: 'button', className: 'nas-group-toggle', 'aria-pressed': grouped, onClick: toggleGrouped }, h(Icon, { name: 'grid', size: 13 }), t('groupByVendor'))),
         h('div', { className: 'nas-mode' }, h(Icon, { name: 'info', size: 13 }), t(listMode ? 'listModeHint' : 'autoModeHint')),
         h(ErrorText, { text: a.error }),
         !shown.length ? h(Empty, { title: t(models.length ? 'modelEmpty' : 'noModels'), action: !models.length ? h(Button, { icon: 'download', onClick: () => setDialog({ type: 'discover' }) }, t('fetchModels')) : null }) : h('div', { className: 'nas-models' },
           h('div', { className: 'nas-model-head v2' }, h('span', null, `${t('model')} · ${shown.length}`), h('span', null, t('capabilities')), h('span', null, t('test')), h('span')),
-          shown.map((m) => {
+          (() => {
+          const renderRow = (m) => {
             const running = tests.running.has(tests.key(channel.id, m.id));
             const canTest = ['chat', 'image'].includes(m.kind);
             const modelTestTip = t(m.kind === 'chat' ? 'modelTestChatTip' : 'modelTestPaidTip');
@@ -1240,7 +1283,24 @@ window.__ModuleLoader__.load({
                 h(Button, { small: true, className: 'nas-icon-btn', icon: running ? 'refresh' : 'gauge', 'aria-busy': running, tip: canTest ? modelTestTip : t('unsupportedTest'), tipAlign: 'end', disabled: running || !canTest, onClick: () => test(m) }),
                 h(Button, { small: true, className: 'nas-icon-btn', icon: 'edit', tip: t('modelEdit'), tipAlign: 'end', onClick: () => onEdit(m, models.map((x) => x.id)) }),
                 h(Button, { small: true, className: 'nas-icon-btn', icon: 'trash', tip: t('removeModel'), tipAlign: 'end', disabled: store.busy, onClick: () => setDialog({ type: 'remove', model: m }) })));
-          })),
+          };
+          if (!grouped) return shown.map(renderRow);
+          // A search is about finding a model: keep every group open while it is active.
+          return groupModels(shown).map((g) => {
+            const open = Boolean(search) || !collapsed.has(g.key);
+            const tested = g.models.filter((m) => (tests.results.get(tests.key(channel.id, m.id)) ?? m.lastTest));
+            const ok = tested.filter((m) => (tests.results.get(tests.key(channel.id, m.id)) ?? m.lastTest)?.ok).length;
+            return h(React.Fragment, { key: g.key },
+              h('button', { type: 'button', className: 'nas-group-head', 'aria-expanded': open, onClick: () => toggleGroup(g.key) },
+                h('span', { className: `nas-group-caret ${open ? 'open' : ''}`, 'aria-hidden': true }, h(Icon, { name: 'chevron', size: 12 })),
+                g.known ? h(VendorIcon, { vendor: g.label, modelId: '', size: 15 }) : h('span', { className: 'nas-vendor-mark unknown' }, h(Icon, { name: 'grid', size: 13 })),
+                h('span', { className: 'nas-group-name' }, g.label ?? t('groupOther')),
+                !g.known && g.label && h('span', { className: 'nas-group-hint' }, t('groupPrefixHint')),
+                h('span', { className: 'nas-count' }, g.models.length),
+                tested.length > 0 && h('span', { className: 'nas-group-tests' }, tf('groupTested', ok, tested.length))),
+              open && g.models.map(renderRow));
+          });
+        })()),
         undo && h('div', { className: 'nas-toast', role: 'status' }, h('span', null, tf('modelRemoved', undo.model.id)), h(Button, { small: true, onClick: restore, disabled: a.pending }, t('undo'))),
         dialog?.type === 'discover' && h(DiscoverDialog, { channel: dialog.channel, revision: dialog.revision, onClose: () => close(), onDone: close }),
         dialog?.type === 'batch' && h(BatchTestDialog, { channel: dialog.channel, models: dialog.models, onClose: () => close() }),
@@ -1268,7 +1328,7 @@ window.__ModuleLoader__.load({
         action: error ? h(Button, { icon: 'refresh', onClick: () => store.load() }, t('retry')) : null,
       }));
       const channels = state.channels || []; const active = channels.find((c) => c.id === state.activeChannel) || channels[0];
-      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.0' }, h(Styles), header,
+      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.1' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(Empty, { icon: 'gateway', title: t('noGateways'), detail: t('noGatewaysHint'),
           action: h(Button, { icon: 'plus', tone: 'primary', onClick: () => setEditor({ channel: null, revision: state.revision }) }, t('add')) }),
@@ -1278,7 +1338,7 @@ window.__ModuleLoader__.load({
       const modelChannel = channels.find((c) => c.id === modelChannelId) || active;
       const count = (kind) => entries.filter((e) => e.kind === kind).length;
       const operate = (path, ch, key) => a.run(async () => { await store.mutate(path, { id: ch.id, revision: state.revision }); notify(key); });
-      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.0' }, h(Styles), header,
+      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.1' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(ErrorText, { text: a.error || error }),
         h('div', { className: 'nas-summary' },
