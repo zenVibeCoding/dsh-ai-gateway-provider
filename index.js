@@ -1,33 +1,58 @@
 /**
  * AI Gateway (dsh-ai-gateway-provider) — Host half.
  *
- *   - Gateways ("channels"): address + token, saved only after a successful probe.
- *     Exactly one is active and serves the `ai-gateway` model route.
- *   - The model route is registered only while at least one gateway is saved, so an
- *     empty install adds nothing to the model picker.
- *   - Quota is read with the one adapter the probe found for that gateway; a gateway
- *     without a quota endpoint simply has no quota, never an error state.
- *   - A session-checked JSON API under /ai-gateway/api/ serves the settings page.
- *     Config writes go through the DSH settings service, tokens through the DSH
- *     credential service; no token is ever returned to the page.
+ * Model management is ported from dsh-newapi-provider unchanged: per-gateway model
+ * lists, discovery, manual add, per-model overrides (name, mapping, context, output
+ * cap, modalities, reasoning levels, protocol) and single/batch model tests. What
+ * differs is the part a generic gateway cannot share with New API:
+ *
+ *   - a gateway is saved only after a successful probe, and the probe decides which
+ *     quota adapter (if any) it gets — a gateway without one simply shows no quota;
+ *   - the plugin may have no gateway at all, and then registers no model route;
+ *   - no image/video tools (they are New API-specific) and no sidebar balance.
+ *
+ * A session-checked JSON API under /ai-gateway/api/ serves the settings page. Config
+ * writes go through the DSH settings service, tokens through the DSH credential
+ * service; no token is ever returned to the page.
  */
 import z from '@deepseek-ai/schemastery';
 import { LlmError, RetryPolicySchema, assertUsableApiKey, resolveImageAttachmentAccess, resolveRetryPolicy } from '@deepseek-ai/dsh-llm';
 import { credentialRef } from '@deepseek-ai/dsh-credentials';
 import { GatewayAdapter, DEFAULT_ENDPOINT_PRIORITY } from './lib/adapter.js';
-import { Catalog, chatModels, DEFAULT_CONTEXT_WINDOW, DEFAULT_MAX_TOKENS } from './lib/catalog.js';
+import { Catalog, chatModels, upstreamModelOf, DEFAULT_CONTEXT_WINDOW, DEFAULT_MAX_TOKENS } from './lib/catalog.js';
 import { ModelsDev } from './lib/modelsdev.js';
 import { fingerprint, redact } from './lib/util.js';
 import { probe, readQuota, gatewayRoot } from './lib/probe.js';
 import { ChannelService, resolveChannels } from './lib/channels.js';
+import { ModelTester } from './lib/model-test.js';
 
 export const name = 'ai-gateway';
 export const inject = ['llm'];
 
 const ROUTE_PREFIX = '/ai-gateway/api/';
-const VERSION = '0.3.0';
+const VERSION = '0.4.0';
 const ENDPOINT_TYPES = ['openai', 'anthropic', 'openai-response', 'gemini'];
-const MAX_BODY_BYTES = 16 * 1024;
+const KINDS = ['chat', 'image', 'video', 'audio', 'embedding', 'other'];
+const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
+const MODALITIES = ['text', 'image', 'audio', 'video', 'pdf'];
+const MAX_BODY_BYTES = 64 * 1024;
+
+// Same override shape as dsh-newapi-provider, so both plugins describe a model alike.
+const ModelOverride = z.object({
+  name: z.string().description('Display name in the model picker.'),
+  upstreamModel: z.string().default(undefined).description('Upstream wire model id; omitted uses the stable local model id.'),
+  kind: z.union(KINDS).description('Force how the model is used: only chat models appear in the picker.'),
+  hidden: z.boolean().description('Hide this model everywhere.'),
+  contextWindow: z.number().step(1).min(1).description('Context window in tokens (overrides models.dev).'),
+  maxTokens: z.number().step(1).min(1).description('Maximum output tokens (overrides models.dev).'),
+  input: z.array(z.union(MODALITIES)).default(undefined).description('Input modalities the model accepts.'),
+  reasoning: z.boolean().description('Whether the model supports reasoning effort.'),
+  reasoningLevels: z.array(z.union(LEVELS)).default(undefined).description('Reasoning effort levels to offer.'),
+  thinkingLevelMap: z.dict(z.union([z.string(), z.const(null)])).default(undefined)
+    .description('Per-level wire value: a string is sent upstream, null hides the level. Omitted levels fall back to the detected value.'),
+  protocol: z.union(ENDPOINT_TYPES).description('Force the wire protocol for this model.'),
+  custom: z.boolean().description('Add this model even if the gateway does not list it.'),
+});
 
 const Backend = z.object({
   family: z.string().description('Backend family found by the last probe (new-api, unknown, …).'),
@@ -45,7 +70,8 @@ const Channel = z.object({
   apiKeyEnv: z.string().role('credential-ref').description('Credential holding this gateway\'s token.'),
   headers: z.dict(z.string()).description('Extra HTTP headers for this gateway only.'),
   backend: Backend.description('What the probe found when this gateway was saved.'),
-  enabledModels: z.array(z.string()).default(undefined).description('Chat models offered in the picker. Unset offers every chat model the gateway lists.'),
+  models: z.dict(ModelOverride).description('Per-model overrides keyed by model id.'),
+  enabledModels: z.array(z.string()).default(undefined).description('Models enabled on this gateway. Unset offers every model the gateway lists.'),
 });
 
 export const Config = z.object({
@@ -85,7 +111,7 @@ export function apply(ctx, config) {
   const settingsNs = ctx.fiber.entry?.options.id ?? 'ai-gateway';
   const current = () => (typeof config?.get === 'function' ? config.get() : config) ?? {};
   const errors = new Map();
-  const reportError = (scope, error) => errors.set(scope, { at: Date.now(), message: String(error?.message ?? error) });
+  const reportError = (scope, error) => errors.set(scope, { at: Date.now(), code: error?.code ?? 'ERROR', message: String(error?.message ?? error) });
 
   ctx.inject(['settings'], (sctx) => {
     sctx.effect(() => sctx.settings.configure({ auto: false }, ctx.fiber));
@@ -100,15 +126,17 @@ export function apply(ctx, config) {
 
   const connFor = (ch) => {
     const raw = current();
+    const overrides = ch.models ?? {};
     return {
       channelId: ch.id,
+      channelName: ch.name,
       providerId: raw.providerId || 'ai-gateway',
       displayName: raw.displayName || 'AI Gateway',
       baseURL: ch.baseURL,
       apiKeyRef: credentialRef(ch.apiKeyEnv),
-      overrides: {},
+      overrides,
       enabledModels: Array.isArray(ch.enabledModels) ? ch.enabledModels : undefined,
-      overridesRev: fingerprint(`${ch.id}|${JSON.stringify(ch.enabledModels ?? null)}`),
+      overridesRev: fingerprint(`${ch.id}|${JSON.stringify(overrides)}|${JSON.stringify(ch.enabledModels ?? null)}`),
       // Only gateways known to serve the pricing page are asked for it.
       fetchPricing: ch.backend?.family === 'new-api',
       endpointPriority: raw.endpointPriority?.length ? raw.endpointPriority : DEFAULT_ENDPOINT_PRIORITY,
@@ -141,27 +169,29 @@ export function apply(ctx, config) {
     return active;
   };
 
-  // Capture gateway, address, headers and credential reference before any await.
+  const catalogFor = async (ch, { signal, force = false } = {}, captured = connFor(ch)) => {
+    const apiKey = await keyFor(ch);
+    const conn = { ...captured, keyFingerprint: fingerprint(apiKey) };
+    try {
+      return await catalogs.get(conn, apiKey, { signal, force });
+    } catch (error) {
+      const stale = catalogs.peek(conn);
+      if (stale) return stale;
+      throw new LlmError(redact(`ai-gateway: cannot read the model list from ${gatewayRoot(conn.baseURL)}: ${error.message}`, apiKey), error.code === 'AUTH' ? 'AUTH' : 'TRANSPORT', { cause: error });
+    }
+  };
+
+  // Capture gateway, address, headers, overrides and credential reference before any await.
   const capture = (id) => {
     const ch = structuredClone(id ? channels().list.find((c) => c.id === id) : requireActive());
-    if (!ch) throw Object.assign(new Error('unknown gateway'), { status: 404 });
+    if (!ch) throw Object.assign(new Error(`unknown gateway "${id}"`), { status: 404 });
     const conn = connFor(ch);
     let key;
     const requireApiKey = () => key ??= keyFor(ch);
     return {
       connection: conn,
       requireApiKey,
-      catalog: async (opts) => {
-        const apiKey = await requireApiKey();
-        const keyed = { ...conn, keyFingerprint: fingerprint(apiKey) };
-        try {
-          return await catalogs.get(keyed, apiKey, opts);
-        } catch (error) {
-          const stale = catalogs.peek(keyed);
-          if (stale) return stale;
-          throw new LlmError(redact(`ai-gateway: cannot read the model list from ${gatewayRoot(conn.baseURL)}: ${error.message}`, apiKey), error.code === 'AUTH' ? 'AUTH' : 'TRANSPORT', { cause: error });
-        }
-      },
+      catalog: async (opts) => catalogFor(ch, opts ?? {}, conn),
     };
   };
 
@@ -229,7 +259,8 @@ export function apply(ctx, config) {
   });
 
   // ------------------------------------------------------------ quota
-  // Cached per gateway; refreshed on demand and after edits. Never blocks the page long.
+  // In the same shape as dsh-newapi-provider's balance state, so the ported page reads
+  // it unchanged. Gateways without a quota adapter report `status: 'none'`.
   const quotas = new Map();
   const quotaOf = async (ch, { force = false } = {}) => {
     const kind = ch.backend?.quotaKind;
@@ -240,9 +271,20 @@ export function apply(ctx, config) {
     try {
       const apiKey = await keyFor(ch);
       const r = await readQuota({ baseURL: ch.baseURL, apiKey, kind, headers: ch.headers });
-      value = r.ok ? { status: 'ok', ...r.quota, at: Date.now() } : { status: 'error', code: r.code ?? 'error', message: redact(r.error, apiKey) };
+      if (r.ok) {
+        const q = r.quota;
+        const unit = q.unit === 'CNY' ? { unit: 'CNY', symbol: '¥' } : q.unit === 'TOKENS' ? { unit: 'TOKENS', symbol: '' } : q.unit === 'USD' ? { unit: 'USD', symbol: '$' } : { unit: String(q.unit), symbol: '' };
+        value = {
+          status: 'ok', at: Date.now(), kind,
+          currency: { ...unit, estimated: false },
+          token: { unlimited: Boolean(q.unlimited), used: q.used ?? null, remaining: q.remaining ?? null, granted: q.limit ?? null },
+          user: q.account ? { remaining: q.account.remaining ?? null, used: q.account.used ?? null } : null,
+        };
+      } else {
+        value = { status: 'error', code: r.code ?? 'error', message: redact(r.error, apiKey), errorAt: Date.now() };
+      }
     } catch (error) {
-      value = { status: 'error', code: error.code ?? 'error', message: String(error.message ?? error) };
+      value = { status: 'error', code: error.code ?? 'error', message: String(error.message ?? error), errorAt: Date.now() };
     }
     quotas.set(ch.id, { at: Date.now(), value });
     return value;
@@ -257,55 +299,99 @@ export function apply(ctx, config) {
   });
   void modelsDev.refresh();
 
-  // ------------------------------------------------------------ writes
+  // ------------------------------------------------------------ model list & tests
+  const channelById = (id) => {
+    const ch = channels().list.find((c) => c.id === id);
+    if (!ch) throw Object.assign(new Error('unknown gateway'), { status: 404 });
+    return ch;
+  };
+
+  /** Gateway catalog for one channel, ignoring its saved list (what the gateway offers). */
+  const gatewayCatalog = async (ch, opts = {}) => {
+    const snapshotCh = structuredClone(ch);
+    const conn = { ...connFor(snapshotCh), enabledModels: undefined, channelId: `${snapshotCh.id}#gateway` };
+    const apiKey = await keyFor(snapshotCh);
+    return catalogs.get({ ...conn, keyFingerprint: fingerprint(apiKey) }, apiKey, opts);
+  };
+
+  const tester = new ModelTester({
+    channelFacts: async (channelId) => {
+      const bound = capture(channelId);
+      const conn = bound.connection;
+      return {
+        baseURL: conn.baseURL, headers: conn.headers, endpointPriority: conn.endpointPriority,
+        apiKey: bound.requireApiKey,
+        entryFor: async (modelId) => (await bound.catalog()).entries.find((e) => e.id === modelId),
+      };
+    },
+  });
+
+  const discoverModels = async ({ channelId }) => {
+    const ch = channelById(channelId);
+    const value = await gatewayCatalog(ch, { force: true });
+    const enabled = Array.isArray(ch.enabledModels) ? new Set(ch.enabledModels) : undefined;
+    const gatewayIds = new Set(value.gatewayIds ?? value.entries.filter((e) => e.source?.gateway).map((e) => e.id));
+    return {
+      channelId: ch.id,
+      fetchedAt: value.fetchedAt,
+      listMode: enabled ? 'list' : 'auto',
+      models: value.entries.filter((e) => gatewayIds.has(e.upstreamModel ?? e.id)).map((e) => ({
+        id: e.id, upstreamModel: e.upstreamModel ?? e.id, kind: e.kind, vendor: e.vendor, input: e.input,
+        contextWindow: e.contextWindow ?? null, maxTokens: e.maxTokens ?? null,
+        reasoning: e.reasoning, pricing: e.pricing,
+        status: !enabled || enabled.has(e.id) || e.upstreamModel !== e.id ? 'enabled' : 'new',
+      })),
+      missing: enabled
+        ? [...enabled].filter((id) => !gatewayIds.has(upstreamModelOf({ id, upstreamModel: ch.models?.[id]?.upstreamModel }))).map((id) => ({ id, custom: ch.models?.[id]?.custom === true }))
+        : [],
+    };
+  };
+
+  // ------------------------------------------------------------ config writes
   const channelService = new ChannelService({
     ns: settingsNs,
     current,
     settings: () => ctx.get('settings'),
     keyFor,
+    keyConfigured,
     probe: ({ baseURL, apiKey, headers }) => probe({ baseURL, apiKey, headers }),
     storeKey: async (keyName, apiKey) => {
       const credentials = ctx.get('credentials');
       if (!credentials) throw Object.assign(new Error('the DSH credential service is unavailable'), { status: 503 });
-      await credentials.set(credentialRef(keyName), apiKey);
+      await credentials.set(credentialRef(keyName), String(apiKey).trim());
     },
     unsetKey: async (keyName) => ctx.get('credentials')?.unset(credentialRef(keyName)),
-    changed: () => { channelsMemo = undefined; catalogs.invalidate(); quotas.clear(); errors.clear(); ensureRegistration(); },
+    // The page's "test connection": the same probe the save runs, without saving.
+    testGateway: async ({ baseURL, apiKey, headers }) => {
+      const started = Date.now();
+      const report = await probe({ baseURL, apiKey, headers });
+      return {
+        ok: report.usable,
+        baseURL: report.root,
+        latencyMs: Date.now() - started,
+        systemName: report.backend?.name ?? null,
+        version: report.backend?.version ?? null,
+        family: report.backend?.family ?? 'unknown',
+        quotaKind: report.quota?.kind ?? null,
+        models: report.models?.count != null ? {
+          total: report.models.count,
+          image: report.media?.imageModels?.length ?? 0,
+          video: report.media?.videoModels?.length ?? 0,
+          chat: Math.max(0, report.models.count - (report.media?.imageModels?.length ?? 0) - (report.media?.videoModels?.length ?? 0)),
+          other: 0,
+        } : undefined,
+        ...(report.usable ? {} : { error: report.models?.error ?? 'the gateway did not list its models', code: report.models?.code ?? 'ERROR' }),
+      };
+    },
+    headersFor: (ch, baseURL) => (ch && gatewayRoot(ch.baseURL) === gatewayRoot(baseURL) ? { ...(ch.headers ?? {}) } : {}),
+    // First list edit on an automatic-mode gateway starts from what the gateway lists now.
+    gatewayModelIds: async (ch) => (await gatewayCatalog(ch, { force: true })).entries.map((e) => e.id),
+    changed: () => {
+      channelsMemo = undefined; catalogs.invalidate(); quotas.clear(); ensureRegistration();
+      const ids = new Set(channels().list.map((c) => c.id));
+      for (const id of new Set([...tester.results.keys()].map((k) => k.split('\u0000')[0]))) if (!ids.has(id)) tester.forget(id);
+    },
   });
-
-  // ------------------------------------------------------------ model management
-  /**
-   * Every chat model one gateway lists, whatever its saved selection says, with the
-   * facts the picker would show. `enabled` reflects the saved list (all when unset).
-   */
-  const gatewayModels = async ({ id }) => {
-    const ch = structuredClone(channels().list.find((c) => c.id === id));
-    if (!ch) throw Object.assign(new Error('unknown gateway'), { status: 404 });
-    const conn = { ...connFor(ch), enabledModels: undefined, channelId: `${ch.id}#all`, overridesRev: fingerprint(`${ch.id}|all`) };
-    const apiKey = await keyFor(ch);
-    const catalog = await catalogs.get({ ...conn, keyFingerprint: fingerprint(apiKey) }, apiKey, { force: true });
-    const enabled = Array.isArray(ch.enabledModels) ? new Set(ch.enabledModels) : undefined;
-    const listed = new Set(catalog.gatewayIds ?? []);
-    const chat = catalog.entries.filter((e) => e.kind === 'chat');
-    return {
-      id: ch.id,
-      mode: enabled ? 'list' : 'all',
-      fetchedAt: catalog.fetchedAt,
-      models: chat.map((e) => ({
-        id: e.id,
-        name: e.name,
-        enabled: enabled ? enabled.has(e.id) : true,
-        // A model with no capability data runs on defaults (128k context, text only).
-        known: Boolean(e.source?.modelsDev),
-        contextWindow: e.contextWindow ?? null,
-        reasoning: e.reasoning,
-        input: e.input,
-      })),
-      // Saved ids the gateway stopped listing: kept in config, never offered in the picker.
-      missing: enabled ? [...enabled].filter((mid) => !listed.has(mid)) : [],
-      otherCount: catalog.entries.filter((e) => e.kind !== 'chat').length,
-    };
-  };
 
   // ------------------------------------------------------------ snapshot
   const withTimeout = async (p, ms, fallback) => {
@@ -314,24 +400,38 @@ export function apply(ctx, config) {
     finally { clearTimeout(timer); }
   };
 
+  /** One gateway's own model list, with its own overrides and test results. */
+  const modelsOf = async (ch, { force = false } = {}) => {
+    const captured = structuredClone(ch);
+    const conn = connFor(captured);
+    const value = await catalogFor(captured, { force }, conn);
+    if (captured.id === channels().active?.id) errors.delete('catalog');
+    return {
+      channelId: captured.id,
+      listMode: Array.isArray(captured.enabledModels) ? 'list' : 'auto',
+      fetchedAt: value.fetchedAt,
+      pricingAvailable: value.pricingAvailable,
+      pricingError: value.pricingError,
+      entries: value.entries.map(({ thinkingLevelMap, ...e }) => ({
+        ...e,
+        automaticThinkingLevelMap: thinkingLevelMap ?? null,
+        override: structuredClone(Object.hasOwn(captured.models ?? {}, e.id) ? captured.models[e.id] : {}),
+        automaticContextWindow: e.automaticContextWindow ?? conn.defaultContextWindow,
+        automaticMaxTokens: e.automaticMaxTokens ?? conn.defaultMaxTokens,
+        lastTest: tester.last(captured.id, e.id) ?? null,
+        effectiveContextWindow: e.contextWindow ?? conn.defaultContextWindow,
+        effectiveMaxTokens: e.maxTokens ?? conn.defaultMaxTokens,
+      })),
+    };
+  };
+
   const snapshot = async ({ force = false } = {}) => {
     const state = channels();
     const raw = current();
     let models = null;
     if (state.active) {
       try {
-        const catalog = await withTimeout(capture().catalog({ force }), 12_000, undefined);
-        if (catalog) {
-          errors.delete('catalog');
-          models = {
-            fetchedAt: catalog.fetchedAt,
-            chat: chatModels(catalog).map((e) => ({
-              id: e.id, name: e.name, endpointTypes: e.endpointTypes, input: e.input, reasoning: e.reasoning,
-              contextWindow: e.contextWindow ?? raw.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
-            })),
-            other: catalog.entries.filter((e) => e.kind !== 'chat' && !e.hidden).map((e) => ({ id: e.id, kind: e.kind })),
-          };
-        }
+        models = await withTimeout(modelsOf(state.active, { force }), 15_000, null);
       } catch (error) {
         reportError('catalog', error);
       }
@@ -340,20 +440,26 @@ export function apply(ctx, config) {
       id: c.id,
       name: c.name,
       baseURL: gatewayRoot(c.baseURL),
-      backend: c.backend ?? null,
-      modelMode: Array.isArray(c.enabledModels) ? 'list' : 'all',
-      enabledCount: Array.isArray(c.enabledModels) ? c.enabledModels.length : null,
+      keyName: c.apiKeyEnv,
       keyConfigured: await keyConfigured(c),
+      backend: c.backend ?? null,
+      overrideCount: Object.keys(c.models ?? {}).length,
+      enabledCount: Array.isArray(c.enabledModels) ? c.enabledModels.length : null,
       active: c.id === state.active?.id,
-      quota: await withTimeout(quotaOf(c, { force }), 6_000, { status: 'pending' }),
+      balance: await withTimeout(quotaOf(c, { force }), 6_000, { status: 'idle' }),
     })));
+    const active = list.find((c) => c.active);
     return {
       plugin: 'dsh-ai-gateway-provider',
       version: VERSION,
       revision: channelService.revision(),
       channels: list,
       activeChannel: state.active?.id ?? null,
+      listMode: Array.isArray(state.active?.enabledModels) ? 'list' : 'auto',
       route: { ...routeState, displayName: raw.displayName || 'AI Gateway' },
+      defaults: { contextWindow: raw.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW, maxTokens: raw.defaultMaxTokens ?? DEFAULT_MAX_TOKENS },
+      balance: active?.balance ?? { status: 'none' },
+      modelsDev: modelsDev.status(),
       models,
       errors: Object.fromEntries(errors),
     };
@@ -361,14 +467,25 @@ export function apply(ctx, config) {
 
   // ------------------------------------------------------------ page API
   const routes = {
-    'GET state': () => snapshot(),
-    'POST refresh': () => snapshot({ force: true }),
-    'POST check': (body) => channelService.check(body),
-    'POST channel/save': (body) => channelService.run('save', body),
-    'POST channel/activate': (body) => channelService.run('activate', body),
-    'POST channel/delete': (body) => channelService.run('delete', body),
-    'POST channel/models': (body) => channelService.run('models', body),
-    'POST models/list': (body) => gatewayModels(body),
+    'GET state': async () => snapshot(),
+    'POST refresh': async () => {
+      catalogs.invalidate();
+      await modelsDev.refresh({ force: true });
+      return snapshot({ force: true });
+    },
+    ...Object.fromEntries([
+      ['channel/activate', 'activate'], ['channel/test', 'test'], ['channel/save', 'save'],
+      ['channel/delete', 'delete'], ['model/override', 'model_override'], ['models/set', 'models_set'],
+    ].map(([route, action]) => [`POST ${route}`, async (body) => {
+      const result = await channelService.run(action, body);
+      return action === 'test' ? result : snapshot();
+    }])),
+    'POST models/discover': async (body) => discoverModels(body),
+    'POST models/list': async (body) => {
+      if (typeof body?.channelId !== 'string' || !body.channelId) throw Object.assign(new Error('channelId is required'), { status: 400 });
+      return modelsOf(channelById(body.channelId), { force: body.force === true });
+    },
+    'POST model/test': async (body) => tester.run(body),
   };
 
   ctx.inject(['webServer'], (wctx) => {
