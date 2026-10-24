@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "AI Gateway",
+    "description": "Connect any OpenAI-compatible gateway: detects models, protocols and quota endpoints, and shows quota for known backends such as New API and LiteLLM. Preview: gateway probing only."
+  }
+}

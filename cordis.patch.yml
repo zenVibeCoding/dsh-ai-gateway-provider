@@ -1,0 +1,3 @@
+- insert:
+    - id: ai-gateway
+      name: dsh-ai-gateway-provider
