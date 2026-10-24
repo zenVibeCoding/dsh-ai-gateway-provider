@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "AI 网关",
-    "description": "接入任意 OpenAI 兼容网关：自动探测模型、协议与额度接口，New API、LiteLLM 等已知后端会额外显示额度。当前为预览版，只提供网关探测。"
+    "description": "接入任意 OpenAI 兼容网关：检查连接后保存，模型出现在对话的模型选择器里；New API、LiteLLM 等已知后端还会显示额度。"
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "dsh-ai-gateway-provider",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Standard-first gateway provider for DeepSeek Harness: any OpenAI-compatible endpoint works, and known backends also report quota.",
   "license": "MIT",
   "author": "zenVibeCoding",
@@ -36,6 +36,30 @@
   "engines": {
     "node": ">=22.19.0",
     "dsh": ">=0.2.1-rc.1 <0.3.0-0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": ">=0.2.1-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-llm-pi-ai": ">=0.2.1-rc.1 <0.3.0-0",
+    "@deepseek-ai/dsh-credentials": ">=0.2.1-rc.1 <0.3.0-0",
+    "@deepseek-ai/schemastery": "^3.18.1",
+    "@earendil-works/pi-ai": ">=1.0.0 <2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-llm": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-llm-pi-ai": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-credentials": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    },
+    "@earendil-works/pi-ai": {
+      "optional": true
+    }
   },
   "dsh": {
     "bundle": {
