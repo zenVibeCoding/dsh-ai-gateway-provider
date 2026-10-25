@@ -30,7 +30,7 @@ export const name = 'ai-gateway';
 export const inject = ['llm'];
 
 const ROUTE_PREFIX = '/ai-gateway/api/';
-const VERSION = '0.4.2';
+const VERSION = '0.4.3';
 const ENDPOINT_TYPES = ['openai', 'anthropic', 'openai-response', 'gemini'];
 const KINDS = ['chat', 'image', 'video', 'audio', 'embedding', 'other'];
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
@@ -317,6 +317,8 @@ export function apply(ctx, config) {
       checkedAt: saved.checkedAt ?? null,
       info: known?.info ?? {},
       evidence: known?.evidence ?? null,
+      // The site's own favicon when it has one; the page falls back to the type icon.
+      icon: known?.icon?.dataUrl ?? null,
     };
   };
 

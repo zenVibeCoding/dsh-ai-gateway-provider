@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { probe, identify, gatewayRoot } from '../lib/probe.js';
+import { probe, identify, readIcon, gatewayRoot } from '../lib/probe.js';
 
 const KEY = 'sk-test-0123456789abcdefghij';
 
@@ -214,4 +214,80 @@ test('identify: an HTML landing page is not mistaken for a backend', async () =>
     assert.equal(id.family, 'unknown');
     assert.deepEqual(id.info, {});
   } finally { await gw.close(); }
+});
+
+// ---------------------------------------------------------------- site icon
+const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+
+test('icon: /favicon.ico when the site has nothing declared', async () => {
+  const server = http.createServer((req, res) => {
+    if (req.url === '/') { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"message":"CLI Proxy API Server"}'); return; }
+    if (req.url === '/favicon.ico') { res.writeHead(200, { 'content-type': 'image/vnd.microsoft.icon' }); res.end(PNG_1PX); return; }
+    res.writeHead(404); res.end();
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const icon = await readIcon({ baseURL: `http://127.0.0.1:${server.address().port}` });
+    assert.equal(icon.source, 'favicon.ico');
+    assert.match(icon.dataUrl, /^data:image\/vnd\.microsoft\.icon;base64,/);
+  } finally { await new Promise((r) => server.close(r)); }
+});
+
+test('icon: a declared <link rel="icon"> wins over /favicon.ico', async () => {
+  const seen = [];
+  const server = http.createServer((req, res) => {
+    seen.push(req.url);
+    if (req.url === '/') { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<html><head><link rel="shortcut icon" href="/assets/logo.svg"></head></html>'); return; }
+    if (req.url === '/assets/logo.svg') { res.writeHead(200, { 'content-type': 'image/svg+xml' }); res.end('<svg xmlns="http://www.w3.org/2000/svg"/>'); return; }
+    if (req.url === '/favicon.ico') { res.writeHead(200, { 'content-type': 'image/png' }); res.end(PNG_1PX); return; }
+    res.writeHead(404); res.end();
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const icon = await readIcon({ baseURL: `http://127.0.0.1:${server.address().port}` });
+    assert.equal(icon.source, 'link');
+    assert.equal(icon.type, 'image/svg+xml');
+    assert.ok(!seen.includes('/favicon.ico'), 'the declared icon short-circuits the fallback');
+  } finally { await new Promise((r) => server.close(r)); }
+});
+
+test('icon: an inline data: icon is passed through without another request', async () => {
+  const html = `<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E">`;
+  const server = http.createServer((req, res) => {
+    if (req.url === '/') { res.writeHead(200, { 'content-type': 'text/html' }); res.end(html); return; }
+    res.writeHead(404); res.end();
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const icon = await readIcon({ baseURL: `http://127.0.0.1:${server.address().port}` });
+    assert.equal(icon.source, 'inline');
+    assert.match(icon.dataUrl, /^data:image\/svg\+xml;base64,/);
+  } finally { await new Promise((r) => server.close(r)); }
+});
+
+test('icon: none, an HTML body at /favicon.ico, or a foreign host is not used', async () => {
+  const server = http.createServer((req, res) => {
+    if (req.url === '/') { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<link rel="icon" href="https://cdn.example.org/other.png">'); return; }
+    // A SPA answers every path with its index page: that must not become an icon.
+    res.writeHead(200, { 'content-type': 'text/html' }); res.end('<!doctype html>');
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const icon = await readIcon({ baseURL: `http://127.0.0.1:${server.address().port}` });
+    assert.equal(icon, undefined);
+  } finally { await new Promise((r) => server.close(r)); }
+});
+
+test('identify: carries the site icon when there is one', async () => {
+  const server = http.createServer((req, res) => {
+    if (req.url === '/api/status') { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"data":{"system_name":"New API","version":"v1"}}'); return; }
+    if (req.url === '/favicon.ico') { res.writeHead(200, { 'content-type': 'image/png' }); res.end(PNG_1PX); return; }
+    res.writeHead(404); res.end();
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  try {
+    const id = await identify({ baseURL: `http://127.0.0.1:${server.address().port}` });
+    assert.equal(id.family, 'new-api');
+    assert.match(id.icon.dataUrl, /^data:image\/png;base64,/);
+  } finally { await new Promise((r) => server.close(r)); }
 });

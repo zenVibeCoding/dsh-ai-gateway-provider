@@ -294,10 +294,13 @@ window.__ModuleLoader__.load({
       cliproxy: { label: 'CLIProxyAPI', svg: '<path d="M4 7l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 16h4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="19" cy="7" r="2" fill="currentColor"/><path d="M19 9v3a3 3 0 0 1-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' },
       litellm: { label: 'LiteLLM', svg: '<path d="M12 3.5a5.5 5.5 0 0 0-3.2 10l.7 2.5h5l.7-2.5A5.5 5.5 0 0 0 12 3.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 19h5M10.5 21.5h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' },
     };
-    function GatewayMark({ family, active, size = 16 }) {
+    function GatewayMark({ family, icon, active, size = 16, label }) {
       const f = GATEWAY_FAMILIES[family];
+      // `icon` is a data URL fetched by the Host: rendering it never contacts the site.
       return h('span', { className: 'nas-gw-mark-inner', 'aria-hidden': true },
-        f ? h('svg', { width: size, height: size, viewBox: '0 0 24 24', dangerouslySetInnerHTML: { __html: f.svg } }) : h(Icon, { name: 'gateway', size: size - 1 }),
+        icon
+          ? h('img', { className: 'nas-gw-favicon', src: icon, alt: '', width: size, height: size, loading: 'lazy', decoding: 'async' })
+          : f ? h('svg', { width: size, height: size, viewBox: '0 0 24 24', dangerouslySetInnerHTML: { __html: f.svg } }) : h(Icon, { name: 'gateway', size: size - 1 }),
         active && h('span', { className: 'nas-gw-active-dot' }, h(Icon, { name: 'check', size: 8 })));
     }
     const familyLabel = (backend, t) => GATEWAY_FAMILIES[backend?.family]?.label ?? backend?.name ?? t('genericGateway');
@@ -489,6 +492,9 @@ window.__ModuleLoader__.load({
       .nas-group-head .nas-vendor-mark{flex-shrink:0}
       @media(prefers-reduced-motion:reduce){.nas-group-caret{transition:none}}
       .nas-gw-mark-inner{position:relative;display:inline-flex;align-items:center;justify-content:center;line-height:0}
+      .nas-gw-favicon{display:block;border-radius:5px;object-fit:contain;background:transparent}
+      .nas-ch-row .nas-gw-favicon{width:20px;height:20px}
+      .nas-model-channel .nas-gw-favicon{width:14px;height:14px}
       .nas-gw-active-dot{position:absolute;right:-6px;bottom:-6px;width:12px;height:12px;border-radius:50%;background:var(--nas-accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--nas-bg)}
       .nas-ch-row.is-active .nas-ch-mark{color:var(--nas-text);background:var(--nas-raised)}
       .nas-ch-type{display:inline-block;margin-left:8px;font-size:10.5px;font-weight:500;color:var(--nas-sub);border:1px solid var(--nas-line);border-radius:5px;padding:0 6px;vertical-align:1px;white-space:nowrap}
@@ -921,7 +927,7 @@ window.__ModuleLoader__.load({
       const protocols = Object.entries(facts?.protocols || {}).sort((x, y) => y[1] - x[1]).map(([p]) => PROTOCOL_LABELS[p] || p);
       const quotaSource = b.quotaKind ? t(`quotaKind_${String(b.quotaKind).replace(/-/g, '_')}`) : t('quotaNone');
       const rows = [
-        [t('factType'), h('span', { className: 'nas-fact-type' }, h(GatewayMark, { family: b.family, size: 13 }), familyLabel(b, t), b.version && h('span', { className: 'nas-fact-dim' }, b.version))],
+        [t('factType'), h('span', { className: 'nas-fact-type' }, h(GatewayMark, { family: b.family, icon: b.icon, size: 13 }), familyLabel(b, t), b.version && h('span', { className: 'nas-fact-dim' }, b.version))],
         [t('factQuota'), quotaSource],
         protocols.length > 0 && [t('factProtocols'), protocols.join(' · ')],
         facts && [t('factCoverage'), tf('factCoverageValue', facts.knownCount, facts.chatCount)],
@@ -975,7 +981,7 @@ window.__ModuleLoader__.load({
       const label = `${ch.name}${ch.active ? ` · ${t('activeTip')}` : ''}`;
       return h('div', { className: `nas-ch-row ${ch.active ? 'is-active' : ''}`, role: 'listitem', 'aria-current': ch.active ? 'true' : undefined, 'aria-label': label },
         h('span', { className: 'nas-ch-mark', 'data-tip': [familyLabel(ch.backend, t) + (ch.backend?.version ? ` ${ch.backend.version}` : ''), t(ch.active ? 'activeTip' : 'inactiveTip')].join('\n'), 'data-tip-align': 'start' },
-          h(GatewayMark, { family: ch.backend?.family, active: ch.active })),
+          h(GatewayMark, { family: ch.backend?.family, icon: ch.backend?.icon, active: ch.active })),
         h('div', { className: 'nas-ch-id' },
           h('strong', { className: 'nas-ch-name' }, ch.name, h('span', { className: 'nas-ch-type' }, familyLabel(ch.backend, t))),
           h('div', { className: 'nas-ch-url' }, ch.baseURL)),
@@ -1392,7 +1398,7 @@ window.__ModuleLoader__.load({
         action: error ? h(Button, { icon: 'refresh', onClick: () => store.load() }, t('retry')) : null,
       }));
       const channels = state.channels || []; const active = channels.find((c) => c.id === state.activeChannel) || channels[0];
-      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.2' }, h(Styles), header,
+      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.3' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(Empty, { icon: 'gateway', title: t('noGateways'), detail: t('noGatewaysHint'),
           action: h(Button, { icon: 'plus', tone: 'primary', onClick: () => setEditor({ channel: null, revision: state.revision }) }, t('add')) }),
@@ -1402,7 +1408,7 @@ window.__ModuleLoader__.load({
       const modelChannel = channels.find((c) => c.id === modelChannelId) || active;
       const count = (kind) => entries.filter((e) => e.kind === kind).length;
       const operate = (path, ch, key) => a.run(async () => { await store.mutate(path, { id: ch.id, revision: state.revision }); notify(key); });
-      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.2' }, h(Styles), header,
+      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.3' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(ErrorText, { text: a.error || error }),
         h('div', { className: 'nas-summary' },
@@ -1430,7 +1436,7 @@ window.__ModuleLoader__.load({
                 className: `nas-model-channel ${c.id === modelChannel.id ? 'selected' : ''} ${c.active ? 'is-active' : ''}`,
                 'data-tip': c.active ? `${c.name} · ${t('activeTip')}` : c.name, 'data-tip-align': 'start',
                 onClick: () => setModelChannelId(c.id),
-              }, h(GatewayMark, { family: c.backend?.family, active: c.active, size: 13 }), h('span', null, c.name),
+              }, h(GatewayMark, { family: c.backend?.family, icon: c.backend?.icon, active: c.active, size: 13 }), h('span', null, c.name),
               c.enabledCount != null && h('span', { className: 'nas-count' }, c.enabledCount)))),
             !modelChannel.active && h('div', { className: 'nas-mode warn' }, h(Icon, { name: 'info', size: 13 }), t('viewingInactive')),
             h(ModelsPanel, {
