@@ -189,3 +189,26 @@ test('editing the gateway keeps its model list and overrides', async () => {
   } finally { await gw.close(); }
 });
 
+
+test('hiding models: one write, only the hidden flag changes, automatic mode survives', async () => {
+  const gw = await gateway();
+  const h = host();
+  try {
+    const { channelId } = await h.service.run('save', { revision: h.revision, baseURL: gw.base, apiKey: KEY });
+    await h.service.run('model_override', { revision: h.revision, channelId, modelId: 'gpt-6-sol', override: { contextWindow: 400000 } });
+    await h.service.run('models_hidden', { revision: h.revision, channelId, ids: ['gpt-6-sol', 'claude-opus-5-5'], hidden: true });
+    let ch = resolveChannels(h.value).list[0];
+    assert.equal(ch.enabledModels, undefined, 'hiding must not turn the gateway into a fixed list');
+    assert.deepEqual(ch.models['gpt-6-sol'], { contextWindow: 400000, hidden: true }, 'other overrides are kept');
+    assert.deepEqual(ch.models['claude-opus-5-5'], { hidden: true });
+
+    await h.service.run('models_hidden', { revision: h.revision, channelId, ids: ['gpt-6-sol', 'claude-opus-5-5'], hidden: false });
+    ch = resolveChannels(h.value).list[0];
+    assert.deepEqual(ch.models['gpt-6-sol'], { contextWindow: 400000 });
+    assert.equal('claude-opus-5-5' in ch.models, false, 'an override left empty is removed');
+
+    await assert.rejects(h.service.run('models_hidden', { revision: h.revision, channelId, ids: [], hidden: true }), (e) => e.status === 400);
+    await assert.rejects(h.service.run('models_hidden', { revision: h.revision, channelId, ids: ['x'], hidden: 'yes' }), (e) => e.status === 400);
+    await assert.rejects(h.service.run('models_hidden', { revision: h.revision, channelId, ids: ['__proto__'], hidden: true }), (e) => e.status === 400);
+  } finally { await gw.close(); }
+});

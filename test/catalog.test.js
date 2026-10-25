@@ -34,3 +34,10 @@ test('a saved id the gateway stopped listing is not offered (it would fail on se
   assert.deepEqual(chatModels(built).map((e) => e.id), ['gpt-6-sol']);
   assert.equal(built.entries.find((e) => e.id === 'retired-model').availability, 'missing', 'still visible to the management view');
 });
+
+test('a hidden model stays in the catalog but is not offered in the picker', () => {
+  const cat = new Catalog({ modelsDev, levels: new LevelCatalog({ providers: [] }) });
+  const built = cat.build(conn({ overrides: { 'devin/swe-2': { hidden: true } }, overridesRev: 'h' }), raw);
+  assert.deepEqual(chatModels(built).map((e) => e.id), ['gpt-6-sol', 'claude-opus-5-5']);
+  assert.equal(built.entries.find((e) => e.id === 'devin/swe-2').hidden, true, 'the settings list can still show and unhide it');
+});

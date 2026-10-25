@@ -31,7 +31,7 @@ export const name = 'ai-gateway';
 export const inject = ['llm'];
 
 const ROUTE_PREFIX = '/ai-gateway/api/';
-const VERSION = '0.5.0';
+const VERSION = '0.5.1';
 const ENDPOINT_TYPES = ['openai', 'anthropic', 'openai-response', 'gemini'];
 const KINDS = ['chat', 'image', 'video', 'audio', 'embedding', 'other'];
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
@@ -550,6 +550,7 @@ export function apply(ctx, config) {
     ...Object.fromEntries([
       ['channel/activate', 'activate'], ['channel/test', 'test'], ['channel/save', 'save'],
       ['channel/delete', 'delete'], ['model/override', 'model_override'], ['models/set', 'models_set'],
+      ['models/hidden', 'models_hidden'],
     ].map(([route, action]) => [`POST ${route}`, async (body) => {
       const result = await channelService.run(action, body);
       return action === 'test' ? result : snapshot();
