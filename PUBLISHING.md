@@ -2,15 +2,22 @@
 
 本文件记录发布状态与步骤，随仓库一起提交。
 
-## 当前状态（2026-10-25）
+## 当前状态（2026-10-26）
 
 | 项目 | 状态 |
 | --- | --- |
-| 版本 | 0.5.0（首次公开发布） |
-| 测试 | 92 项通过（`npm test`） |
-| npm | 待发布 |
-| GitHub | 待创建远端 |
-| 插件市场 | 待投稿（仓库需满 24 小时） |
+| 版本 | 0.5.2 |
+| 测试 | 94 项通过（`npm test`） |
+| npm | 0.5.0 已发布；0.5.2 发布中 |
+| GitHub | https://github.com/zenVibeCoding/dsh-ai-gateway-provider |
+| 插件市场 | PR awesome-dsh-plugin#9445，等仓库满 24 小时 + 维护者合并 |
+| 封面 | `assets/cover.png`，在 `screenshots.json` 中排第一 |
+
+### 版本记录
+
+- **0.5.2**：隐藏模型改为原地置灰，不再从列表移走；封面与 `screenshots.json`；README 标题改为「任意 AI 网关」
+- **0.5.1**：隐藏模型（单个 / 整组），隐藏的模型不进对话选择器
+- **0.5.0**：首次公开发布
 
 ## 发布前必须完成
 
@@ -29,7 +36,7 @@ npm test
 npm pack --dry-run
 ```
 
-预期：约 20 个文件；`docs/`、`assets/`、`test/`、`scripts/` 不随包发布。
+预期：21 个文件；`docs/`、`assets/`、`test/`、`scripts/`、`screenshots.json` 不随包发布（市场从 GitHub 读截图）。
 `lib/` 必须完整（`probe.js`、`channels.js`、`catalog.js`、`adapter.js`、`model-test.js`、`modelsdev.js`、`levels.js`、`util.js`、`site-cache.js`、`backend.js`），漏一个就会在安装后报模块找不到。
 
 ## 第一步：npm 发布
