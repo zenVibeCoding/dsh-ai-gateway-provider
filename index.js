@@ -31,7 +31,7 @@ export const name = 'ai-gateway';
 export const inject = ['llm'];
 
 const ROUTE_PREFIX = '/ai-gateway/api/';
-const VERSION = '0.5.1';
+const VERSION = '0.5.2';
 const ENDPOINT_TYPES = ['openai', 'anthropic', 'openai-response', 'gemini'];
 const KINDS = ['chat', 'image', 'video', 'audio', 'embedding', 'other'];
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];

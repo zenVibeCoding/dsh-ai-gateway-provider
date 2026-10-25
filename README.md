@@ -23,7 +23,7 @@ Requires DSH ≥ 0.2.1-rc.1.
 - **Probe before saving.** A gateway is written only after it lists its models with the address and token you entered. A wrong URL or a revoked token is refused at that moment, not on the first message.
 - **Model management per gateway.** Fetch the gateway's list, add a model it does not list, edit any model's name, upstream mapping, context window, output cap, input modalities, reasoning levels and wire protocol, and hide what you do not want.
 - **Grouped model table.** Models are grouped by vendor — `devin/claude-opus-5` and `claude-opus-5-5` sit together under Anthropic — with a per-group "tested / working" count. Groups collapse, and the grouping can be switched off.
-- **Hide models.** Hide one model, or a whole vendor group, from the chat picker without removing it; "Show hidden" brings them back to unhide. Hiding never turns an automatic gateway into a fixed list.
+- **Hide models.** Hide one model, or a whole vendor group, from the chat picker without removing it; Hidden models stay in the list, greyed out, so clicking again unhides them. Hiding never turns an automatic gateway into a fixed list.
 - **Model tests.** Test one model or a batch: one tiny request each, bounded output, errors classified (no upstream channel, invalid token, rate limited, timed out).
 - **Quota where it exists, silence where it does not.** New API, LiteLLM and one-api-family backends report quota; every other gateway simply shows no quota instead of an error.
 - **The gateway's own identity.** The channel shows the site's favicon when it has one, its declared name (page title, then the backend's own name), its version, chat protocols and public facts. Unknown gateways fall back to a neutral icon.
