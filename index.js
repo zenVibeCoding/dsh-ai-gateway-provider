@@ -22,7 +22,7 @@ import { GatewayAdapter, DEFAULT_ENDPOINT_PRIORITY } from './lib/adapter.js';
 import { Catalog, chatModels, upstreamModelOf, DEFAULT_CONTEXT_WINDOW, DEFAULT_MAX_TOKENS } from './lib/catalog.js';
 import { ModelsDev } from './lib/modelsdev.js';
 import { fingerprint, redact } from './lib/util.js';
-import { probe, readQuota, gatewayRoot } from './lib/probe.js';
+import { probe, identify, readQuota, gatewayRoot } from './lib/probe.js';
 import { ChannelService, resolveChannels } from './lib/channels.js';
 import { ModelTester } from './lib/model-test.js';
 
@@ -30,7 +30,7 @@ export const name = 'ai-gateway';
 export const inject = ['llm'];
 
 const ROUTE_PREFIX = '/ai-gateway/api/';
-const VERSION = '0.4.1';
+const VERSION = '0.4.2';
 const ENDPOINT_TYPES = ['openai', 'anthropic', 'openai-response', 'gemini'];
 const KINDS = ['chat', 'image', 'video', 'audio', 'embedding', 'other'];
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
@@ -290,6 +290,36 @@ export function apply(ctx, config) {
     return value;
   };
 
+  const identities = new Map();
+  const IDENTITY_TTL_MS = 30 * 60 * 1000;
+  const identityOf = async (ch, { force = false } = {}) => {
+    const root = gatewayRoot(ch.baseURL);
+    const hit = identities.get(root);
+    if (!force && hit && Date.now() - hit.at < IDENTITY_TTL_MS) return hit.value;
+    try {
+      const value = await identify({ baseURL: root, headers: { ...(ch.headers ?? {}) } });
+      identities.set(root, { at: Date.now(), value });
+      return value;
+    } catch {
+      return hit?.value;
+    }
+  };
+  /** What the page shows: the live identity when known, the saved probe facts otherwise. */
+  const backendView = (ch, live) => {
+    const saved = ch.backend ?? {};
+    const known = live && live.family !== 'unknown' ? live : null;
+    return {
+      family: known?.family ?? saved.family ?? 'unknown',
+      name: known?.name ?? saved.name ?? null,
+      version: known?.version ?? saved.version ?? null,
+      quotaKind: saved.quotaKind ?? null,
+      modelCount: saved.modelCount ?? null,
+      checkedAt: saved.checkedAt ?? null,
+      info: known?.info ?? {},
+      evidence: known?.evidence ?? null,
+    };
+  };
+
   ctx.on('loader/volatile-update', () => {
     channelsMemo = undefined;
     catalogs.invalidate();
@@ -442,13 +472,24 @@ export function apply(ctx, config) {
       baseURL: gatewayRoot(c.baseURL),
       keyName: c.apiKeyEnv,
       keyConfigured: await keyConfigured(c),
-      backend: c.backend ?? null,
+      backend: backendView(c, await withTimeout(identityOf(c, { force }), 5_000, identities.get(gatewayRoot(c.baseURL))?.value)),
       overrideCount: Object.keys(c.models ?? {}).length,
       enabledCount: Array.isArray(c.enabledModels) ? c.enabledModels.length : null,
       active: c.id === state.active?.id,
       balance: await withTimeout(quotaOf(c, { force }), 6_000, { status: 'idle' }),
     })));
     const active = list.find((c) => c.active);
+    const entries = models?.entries ?? [];
+    const chat = entries.filter((e) => e.kind === 'chat' && !e.hidden);
+    const protocols = {};
+    for (const e of chat) for (const p of (e.endpointTypes?.length ? e.endpointTypes : ['openai'])) protocols[p] = (protocols[p] ?? 0) + 1;
+    const facts = active ? {
+      protocols,
+      chatCount: chat.length,
+      knownCount: chat.filter((e) => e.source?.modelsDev).length,
+      listMode: Array.isArray(state.active?.enabledModels) ? 'list' : 'auto',
+      overrideCount: active.overrideCount,
+    } : null;
     return {
       plugin: 'dsh-ai-gateway-provider',
       version: VERSION,
@@ -459,6 +500,7 @@ export function apply(ctx, config) {
       route: { ...routeState, displayName: raw.displayName || 'AI Gateway' },
       defaults: { contextWindow: raw.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW, maxTokens: raw.defaultMaxTokens ?? DEFAULT_MAX_TOKENS },
       balance: active?.balance ?? { status: 'none' },
+      facts,
       modelsDev: modelsDev.status(),
       models,
       errors: Object.fromEntries(errors),

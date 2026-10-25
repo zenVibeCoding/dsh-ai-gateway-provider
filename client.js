@@ -25,6 +25,10 @@ window.__ModuleLoader__.load({
       sidebarBalanceHint: '点击刷新额度',
       loadFailed: '无法读取渠道数据', loadFailedHint: '如果刚重启过 DSH，请确认插件已加载后再试。',
       groupByVendor: '按厂商分组', groupOther: '其他', groupPrefixHint: '未识别厂商，按路径前缀归组', groupTested: (ok, n) => `已测 ${n} · 可用 ${ok}`,
+      factType: '网关类型', factQuota: '额度来源', factProtocols: '对话协议', factCoverage: '模型资料', factList: '模型清单',
+      factListAuto: '自动（网关新增自动出现）', factListManual: '手动清单', factEndpoints: '公开接口', factUptime: '已运行', factChecked: '保存时检查', factDocs: '文档',
+      factCoverageValue: (known, total) => `${known} / ${total} 个对话模型有资料`,
+      quotaKind_new_api: 'New API 令牌额度', quotaKind_litellm: 'LiteLLM 预算', quotaKind_openai_billing: 'OpenAI 风格账单接口',
       genericGateway: 'OpenAI 兼容网关', quotaNone: '无额度接口', healthNoQuota: '这个网关没有额度接口，连接状态请点「测试连接」',
       noGateways: '还没有网关', noGatewaysHint: '添加一个 OpenAI 兼容网关，保存后它的模型会出现在对话的模型选择器里（「AI Gateway」）。',
       cached: '已缓存', balanceUnavailable: '额度暂不可用', notFetched: '待查询', used: '已用', remaining: '剩余',
@@ -118,6 +122,10 @@ window.__ModuleLoader__.load({
       sidebarBalanceHint: 'Click to refresh the quota',
       loadFailed: 'Could not read gateway data', loadFailedHint: 'If DSH was just restarted, make sure the plugin is loaded and try again.',
       groupByVendor: 'Group by vendor', groupOther: 'Other', groupPrefixHint: 'vendor not recognised, grouped by path prefix', groupTested: (ok, n) => `${n} tested · ${ok} working`,
+      factType: 'Gateway type', factQuota: 'Quota source', factProtocols: 'Chat protocols', factCoverage: 'Model data', factList: 'Model list',
+      factListAuto: 'Automatic (new models appear)', factListManual: 'Manual list', factEndpoints: 'Public endpoints', factUptime: 'Running for', factChecked: 'Checked at save', factDocs: 'Docs',
+      factCoverageValue: (known, total) => `${known} of ${total} chat models have data`,
+      quotaKind_new_api: 'New API token quota', quotaKind_litellm: 'LiteLLM budget', quotaKind_openai_billing: 'OpenAI-style billing routes',
       genericGateway: 'OpenAI-compatible gateway', quotaNone: 'No quota endpoint', healthNoQuota: 'This gateway has no quota endpoint; use Test connection to check it',
       noGateways: 'No gateways yet', noGatewaysHint: 'Add an OpenAI-compatible gateway. Once saved, its models appear in the chat model picker under “AI Gateway”.',
       cached: 'Cached', balanceUnavailable: 'Quota unavailable', notFetched: 'Not queried', used: 'Used', remaining: 'Remaining',
@@ -280,6 +288,19 @@ window.__ModuleLoader__.load({
       return { key: null, label: vendor || modelId || "" };
     }
     let vendorSeq = 0;
+    /** Gateway family → label and an original monochrome mark (24×24, currentColor). */
+    const GATEWAY_FAMILIES = {
+      'new-api': { label: 'New API', svg: '<rect x="3" y="4" width="18" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 15V9l4 6V9M15.5 9v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' },
+      cliproxy: { label: 'CLIProxyAPI', svg: '<path d="M4 7l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 16h4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="19" cy="7" r="2" fill="currentColor"/><path d="M19 9v3a3 3 0 0 1-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' },
+      litellm: { label: 'LiteLLM', svg: '<path d="M12 3.5a5.5 5.5 0 0 0-3.2 10l.7 2.5h5l.7-2.5A5.5 5.5 0 0 0 12 3.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 19h5M10.5 21.5h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' },
+    };
+    function GatewayMark({ family, active, size = 16 }) {
+      const f = GATEWAY_FAMILIES[family];
+      return h('span', { className: 'nas-gw-mark-inner', 'aria-hidden': true },
+        f ? h('svg', { width: size, height: size, viewBox: '0 0 24 24', dangerouslySetInnerHTML: { __html: f.svg } }) : h(Icon, { name: 'gateway', size: size - 1 }),
+        active && h('span', { className: 'nas-gw-active-dot' }, h(Icon, { name: 'check', size: 8 })));
+    }
+    const familyLabel = (backend, t) => GATEWAY_FAMILIES[backend?.family]?.label ?? backend?.name ?? t('genericGateway');
     /**
      * Group key for the model table: the vendor when known; otherwise the relay prefix
      * ("devin/…" → "devin"), so unrecognised models from one route still sit together.
@@ -467,6 +488,19 @@ window.__ModuleLoader__.load({
       .nas-group-tests{margin-left:auto;font-weight:400;color:var(--nas-sub);font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
       .nas-group-head .nas-vendor-mark{flex-shrink:0}
       @media(prefers-reduced-motion:reduce){.nas-group-caret{transition:none}}
+      .nas-gw-mark-inner{position:relative;display:inline-flex;align-items:center;justify-content:center;line-height:0}
+      .nas-gw-active-dot{position:absolute;right:-6px;bottom:-6px;width:12px;height:12px;border-radius:50%;background:var(--nas-accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px var(--nas-bg)}
+      .nas-ch-row.is-active .nas-ch-mark{color:var(--nas-text);background:var(--nas-raised)}
+      .nas-ch-type{display:inline-block;margin-left:8px;font-size:10.5px;font-weight:500;color:var(--nas-sub);border:1px solid var(--nas-line);border-radius:5px;padding:0 6px;vertical-align:1px;white-space:nowrap}
+      .nas-model-channel .nas-gw-active-dot{width:9px;height:9px;right:-4px;bottom:-4px}
+      .nas-model-channel .nas-gw-active-dot svg{display:none}
+      .nas-facts{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px 18px;margin:0;padding:13px 19px 15px;border-top:1px solid var(--nas-line);font-size:12px;background:color-mix(in srgb,var(--nas-raised) 45%,transparent)}
+      .nas-fact{min-width:0}
+      .nas-facts dt{color:var(--nas-sub);font-size:11px;margin-bottom:2px;white-space:nowrap}
+      .nas-facts dd{margin:0;min-width:0;overflow-wrap:anywhere;color:var(--nas-text)}
+      .nas-facts a{color:inherit;text-decoration:underline;text-decoration-color:var(--nas-line);text-underline-offset:2px}
+      .nas-fact-type{display:inline-flex;align-items:center;gap:5px}
+      .nas-fact-dim{color:var(--nas-sub);font-variant-numeric:tabular-nums}
       /* Tooltips: instant, themed, keyboard accessible. */
       .nas [data-tip]{position:relative}
       .nas [data-tip]::after{content:attr(data-tip);position:absolute;z-index:60;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);width:max-content;max-width:270px;padding:6px 9px;border-radius:7px;border:1px solid var(--nas-line);background:var(--dsw-alias-bg-overlay);color:var(--nas-text);font-size:11px;font-weight:400;line-height:1.55;text-align:left;white-space:pre-line;box-shadow:0 8px 24px color-mix(in srgb,var(--dsw-alias-label-primary) 16%,transparent);opacity:0;pointer-events:none;transition:opacity .12s}
@@ -879,6 +913,35 @@ window.__ModuleLoader__.load({
         h(ErrorText, { text: invalid || a.error })));
     }
     /** One compact row per gateway: identity · quota · health · actions. Details live in tooltips. */
+    /** What was recognised about the active gateway, in one compact block. */
+    function GatewayFacts({ channel, facts }) {
+      const t = useT();
+      const b = channel.backend || {};
+      const known = Boolean(GATEWAY_FAMILIES[b.family]);
+      const protocols = Object.entries(facts?.protocols || {}).sort((x, y) => y[1] - x[1]).map(([p]) => PROTOCOL_LABELS[p] || p);
+      const quotaSource = b.quotaKind ? t(`quotaKind_${String(b.quotaKind).replace(/-/g, '_')}`) : t('quotaNone');
+      const rows = [
+        [t('factType'), h('span', { className: 'nas-fact-type' }, h(GatewayMark, { family: b.family, size: 13 }), familyLabel(b, t), b.version && h('span', { className: 'nas-fact-dim' }, b.version))],
+        [t('factQuota'), quotaSource],
+        protocols.length > 0 && [t('factProtocols'), protocols.join(' · ')],
+        facts && [t('factCoverage'), tf('factCoverageValue', facts.knownCount, facts.chatCount)],
+        facts && [t('factList'), t(facts.listMode === 'list' ? 'factListManual' : 'factListAuto')],
+        b.info?.endpoints?.length > 0 && [t('factEndpoints'), b.info.endpoints.length],
+        b.info?.startedAt && [t('factUptime'), duration(b.info.startedAt)],
+        b.checkedAt && [t('factChecked'), ago(b.checkedAt)],
+      ].filter(Boolean);
+      return h('dl', { className: 'nas-facts', title: !known && b.evidence ? b.evidence : undefined },
+        rows.map(([k, v]) => h('div', { key: k, className: 'nas-fact' }, h('dt', null, k), h('dd', null, v))),
+        b.info?.docs && h('div', { className: 'nas-fact' }, h('dt', null, t('factDocs')), h('dd', null, h('a', { href: b.info.docs, target: '_blank', rel: 'noreferrer' }, new URL(b.info.docs).host))));
+    }
+    function duration(sinceTs) {
+      const s = Math.max(0, (Date.now() - sinceTs) / 1000);
+      const zh = activeDict() === ZH;
+      if (s < 3600) return zh ? `${Math.max(1, Math.floor(s / 60))} 分钟` : `${Math.max(1, Math.floor(s / 60))} min`;
+      if (s < 86400) return zh ? `${Math.floor(s / 3600)} 小时` : `${Math.floor(s / 3600)} h`;
+      return zh ? `${Math.floor(s / 86400)} 天` : `${Math.floor(s / 86400)} days`;
+    }
+    const PROTOCOL_LABELS = { openai: 'OpenAI Chat', 'openai-response': 'OpenAI Responses', anthropic: 'Anthropic', gemini: 'Gemini' };
     function ChannelCard({ channel: ch, count, busy, onEdit, onActivate, onDelete }) {
       const t = useT(); const b = ch.balance; const q = quota(b);
       const [confirm, setConfirm] = useState(false);
@@ -911,9 +974,10 @@ window.__ModuleLoader__.load({
       const quotaTip = [t(q.label), b?.token?.unlimited ? t('unlimited') : null, failed ? b?.message : null].filter(Boolean).join('\n');
       const label = `${ch.name}${ch.active ? ` · ${t('activeTip')}` : ''}`;
       return h('div', { className: `nas-ch-row ${ch.active ? 'is-active' : ''}`, role: 'listitem', 'aria-current': ch.active ? 'true' : undefined, 'aria-label': label },
-        h('span', { className: 'nas-ch-mark', 'data-tip': t(ch.active ? 'activeTip' : 'inactiveTip'), 'data-tip-align': 'start' }, h(Icon, { name: ch.active ? 'check' : 'gateway', size: 15 })),
+        h('span', { className: 'nas-ch-mark', 'data-tip': [familyLabel(ch.backend, t) + (ch.backend?.version ? ` ${ch.backend.version}` : ''), t(ch.active ? 'activeTip' : 'inactiveTip')].join('\n'), 'data-tip-align': 'start' },
+          h(GatewayMark, { family: ch.backend?.family, active: ch.active })),
         h('div', { className: 'nas-ch-id' },
-          h('strong', { className: 'nas-ch-name' }, ch.name),
+          h('strong', { className: 'nas-ch-name' }, ch.name, h('span', { className: 'nas-ch-type' }, familyLabel(ch.backend, t))),
           h('div', { className: 'nas-ch-url' }, ch.baseURL)),
         h('div', { className: `nas-ch-quota ${failed ? 'bad' : ''}`, 'data-tip': quotaTip },
           h('span', { className: 'nas-ch-amount' }, failed ? t('failed') : q.value),
@@ -1328,7 +1392,7 @@ window.__ModuleLoader__.load({
         action: error ? h(Button, { icon: 'refresh', onClick: () => store.load() }, t('retry')) : null,
       }));
       const channels = state.channels || []; const active = channels.find((c) => c.id === state.activeChannel) || channels[0];
-      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.1' }, h(Styles), header,
+      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.2' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(Empty, { icon: 'gateway', title: t('noGateways'), detail: t('noGatewaysHint'),
           action: h(Button, { icon: 'plus', tone: 'primary', onClick: () => setEditor({ channel: null, revision: state.revision }) }, t('add')) }),
@@ -1338,13 +1402,15 @@ window.__ModuleLoader__.load({
       const modelChannel = channels.find((c) => c.id === modelChannelId) || active;
       const count = (kind) => entries.filter((e) => e.kind === kind).length;
       const operate = (path, ch, key) => a.run(async () => { await store.mutate(path, { id: ch.id, revision: state.revision }); notify(key); });
-      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.1' }, h(Styles), header,
+      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.2' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(ErrorText, { text: a.error || error }),
         h('div', { className: 'nas-summary' },
-          h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t('currentChannel')), h('div', { className: 'nas-stat-value name' }, active?.name || '—'), h('div', { className: 'nas-stat-foot' }, active?.baseURL)),
+          h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t('currentChannel')), h('div', { className: 'nas-stat-value name' }, active?.name || '—'), h('div', { className: 'nas-stat-foot' }, active?.baseURL),
+),
           h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t(q.label)), h('div', { className: 'nas-stat-value' }, q.value), h('div', { className: 'nas-stat-foot' }, b?.token?.unlimited ? t('unlimited') : b?.token?.name || '—')),
-          h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t('totalModels')), h('div', { className: 'nas-stat-value' }, entries.length), h('div', { className: 'nas-stat-foot' }, `${t('chat')} ${count('chat')} · ${t('image')} ${count('image')} · ${t('video')} ${count('video')}`))),
+          h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t('totalModels')), h('div', { className: 'nas-stat-value' }, entries.length), h('div', { className: 'nas-stat-foot' }, `${t('chat')} ${count('chat')} · ${t('image')} ${count('image')} · ${t('video')} ${count('video')}`)),
+          active && h(GatewayFacts, { channel: active, facts: state.facts })),
         h('div', { className: 'nas-tabs', role: 'tablist', 'aria-label': t('nav') }, ['channels', 'models'].map((k) => h('button', {
           key: k, type: 'button', className: `nas-tab ${tab === k ? 'selected' : ''}`, id: `nas-tab-${k}`, role: 'tab', 'aria-selected': tab === k, 'aria-controls': `nas-panel-${k}`, tabIndex: tab === k ? 0 : -1,
           onClick: () => setTab(k), onKeyDown: (e) => { if (['ArrowLeft', 'ArrowRight'].includes(e.key)) { e.preventDefault(); const tabs = ['channels', 'models']; const next = tabs[(tabs.indexOf(k) + 1) % 2]; setTab(next); document.getElementById(`nas-tab-${next}`)?.focus(); } },
@@ -1364,7 +1430,7 @@ window.__ModuleLoader__.load({
                 className: `nas-model-channel ${c.id === modelChannel.id ? 'selected' : ''} ${c.active ? 'is-active' : ''}`,
                 'data-tip': c.active ? `${c.name} · ${t('activeTip')}` : c.name, 'data-tip-align': 'start',
                 onClick: () => setModelChannelId(c.id),
-              }, h(Icon, { name: c.active ? 'check' : 'gateway', size: 12 }), h('span', null, c.name),
+              }, h(GatewayMark, { family: c.backend?.family, active: c.active, size: 13 }), h('span', null, c.name),
               c.enabledCount != null && h('span', { className: 'nas-count' }, c.enabledCount)))),
             !modelChannel.active && h('div', { className: 'nas-mode warn' }, h(Icon, { name: 'info', size: 13 }), t('viewingInactive')),
             h(ModelsPanel, {

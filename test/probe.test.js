@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { probe, gatewayRoot } from '../lib/probe.js';
+import { probe, identify, gatewayRoot } from '../lib/probe.js';
 
 const KEY = 'sk-test-0123456789abcdefghij';
 
@@ -79,7 +79,7 @@ test('LiteLLM: /key/info budget, key sent only in the header, never in the URL',
   });
   try {
     const r = await probe({ baseURL: gw.base, apiKey: KEY });
-    assert.equal(r.backend.family, 'unknown');
+    assert.equal(r.backend.family, 'litellm', 'a key budget answering identifies LiteLLM');
     assert.equal(r.quota.kind, 'litellm');
     assert.equal(r.quota.remaining, 7.5);
     assert.equal(r.quota.used, 2.5);
@@ -174,4 +174,44 @@ test('addresses: /v1 and trailing slashes fold to the site root; credentials in 
   assert.equal(gatewayRoot('https://gw.example.com/relay/v1'), 'https://gw.example.com/relay');
   assert.throws(() => gatewayRoot('https://user:pass@gw.example.com'), /token/);
   assert.throws(() => gatewayRoot('ftp://gw.example.com'), /http/);
+});
+
+test('CLIProxyAPI: recognised from its root banner, without a token and without /api/status', async () => {
+  const gw = await fakeGateway({
+    'GET /': () => [200, { endpoints: ['POST /v1/chat/completions', 'POST /v1/completions', 'GET /v1/models'], message: 'CLI Proxy API Server' }],
+    'GET /v1/models': models([{ id: 'devin/claude-opus-5' }, { id: 'gpt-6-sol' }]),
+  });
+  try {
+    const r = await probe({ baseURL: gw.base, apiKey: KEY });
+    assert.equal(r.backend.family, 'cliproxy');
+    assert.equal(r.backend.name, 'CLIProxyAPI');
+    assert.deepEqual(r.backend.info.endpoints, ['POST /v1/chat/completions', 'POST /v1/completions', 'GET /v1/models']);
+    assert.equal(r.quota, null, 'CLIProxy has no quota endpoint');
+
+    const id = await identify({ baseURL: gw.base });
+    assert.equal(id.family, 'cliproxy');
+    assert.ok(gw.seen.filter((h) => h.path === '/' || h.path === '/api/status').every((h) => h.auth === null), 'identification sent a credential');
+  } finally { await gw.close(); }
+});
+
+test('identify: New API public facts, nothing tied to a user', async () => {
+  const gw = await fakeGateway({
+    'GET /api/status': () => [200, { data: { system_name: 'New API', version: 'v1.0.0-rc.45', quota_per_unit: 500000, quota_display_type: 'CNY', start_time: 1792400596, docs_link: 'https://docs.newapi.pro', self_use_mode_enabled: true, enable_drawing: true, server_address: 'http://internal:3000', chats: [{ x: 'y' }] } }],
+  });
+  try {
+    const id = await identify({ baseURL: gw.base });
+    assert.equal(id.family, 'new-api');
+    assert.equal(id.version, 'v1.0.0-rc.45');
+    assert.deepEqual(id.info, { currency: 'CNY', startedAt: 1792400596000, docs: 'https://docs.newapi.pro', selfUse: true, drawing: true });
+    assert.equal('server_address' in id.info, false, 'internal addresses are not surfaced');
+  } finally { await gw.close(); }
+});
+
+test('identify: an HTML landing page is not mistaken for a backend', async () => {
+  const gw = await fakeGateway({ 'GET /': () => [200, '<!doctype html><html></html>'], 'GET /api/status': () => [200, '<!doctype html>'] });
+  try {
+    const id = await identify({ baseURL: gw.base });
+    assert.equal(id.family, 'unknown');
+    assert.deepEqual(id.info, {});
+  } finally { await gw.close(); }
 });
