@@ -3,7 +3,9 @@
 [![npm](https://img.shields.io/npm/v/dsh-ai-gateway-provider)](https://www.npmjs.com/package/dsh-ai-gateway-provider)
 [![license](https://img.shields.io/npm/l/dsh-ai-gateway-provider)](LICENSE)
 
-把**任意 OpenAI 兼容网关**接进 DeepSeek Harness。
+把**任意 AI 网关**接进 DeepSeek Harness——对话可走 OpenAI、Anthropic、Gemini 协议，模型、参数、额度一处管好。
+
+![AI 网关](assets/cover.png)
 
 这类项目本质上是同样的三个接口，只是名字不同。所以这个插件不去维护一份厂商清单，而是按协议来：只要它说 `/v1/models` 和 `/v1/chat/completions`，就能用——包括一个还没人听过的新网关。
 

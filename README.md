@@ -3,7 +3,9 @@
 [![npm](https://img.shields.io/npm/v/dsh-ai-gateway-provider)](https://www.npmjs.com/package/dsh-ai-gateway-provider)
 [![license](https://img.shields.io/npm/l/dsh-ai-gateway-provider)](LICENSE)
 
-Connect **any OpenAI-compatible gateway** to DeepSeek Harness.
+Connect **any AI gateway** to DeepSeek Harness — chat over OpenAI, Anthropic or Gemini protocols, with models, parameters and quota in one place.
+
+![AI Gateway](assets/cover.png)
 
 Most providers are the same three endpoints with different names on the box. Instead of a list of supported vendors, this plugin follows the protocol and probes each gateway for what it can actually do: if it speaks `/v1/models` and `/v1/chat/completions`, it works — including a gateway nobody has heard of yet.
 
