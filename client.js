@@ -25,6 +25,7 @@ window.__ModuleLoader__.load({
       sidebarBalanceHint: '点击刷新额度',
       loadFailed: '无法读取渠道数据', loadFailedHint: '如果刚重启过 DSH，请确认插件已加载后再试。',
       groupByVendor: '按厂商分组', groupOther: '其他', groupPrefixHint: '未识别厂商，按路径前缀归组', groupTested: (ok, n) => `已测 ${n} · 可用 ${ok}`,
+      nameSuggestedHint: '已用网关自己声明的名称填好，可以改。', siteTitleLine: (title) => `站点标题：${title}`,
       factType: '网关类型', factQuota: '额度来源', factProtocols: '对话协议', factCoverage: '模型资料', factList: '模型清单',
       factListAuto: '自动（网关新增自动出现）', factListManual: '手动清单', factEndpoints: '公开接口', factUptime: '已运行', factChecked: '保存时检查', factDocs: '文档',
       factCoverageValue: (known, total) => `${known} / ${total} 个对话模型有资料`,
@@ -122,6 +123,7 @@ window.__ModuleLoader__.load({
       sidebarBalanceHint: 'Click to refresh the quota',
       loadFailed: 'Could not read gateway data', loadFailedHint: 'If DSH was just restarted, make sure the plugin is loaded and try again.',
       groupByVendor: 'Group by vendor', groupOther: 'Other', groupPrefixHint: 'vendor not recognised, grouped by path prefix', groupTested: (ok, n) => `${n} tested · ${ok} working`,
+      nameSuggestedHint: 'Filled with the name the gateway declares; you can change it.', siteTitleLine: (title) => `Site title: ${title}`,
       factType: 'Gateway type', factQuota: 'Quota source', factProtocols: 'Chat protocols', factCoverage: 'Model data', factList: 'Model list',
       factListAuto: 'Automatic (new models appear)', factListManual: 'Manual list', factEndpoints: 'Public endpoints', factUptime: 'Running for', factChecked: 'Checked at save', factDocs: 'Docs',
       factCoverageValue: (known, total) => `${known} of ${total} chat models have data`,
@@ -507,6 +509,10 @@ window.__ModuleLoader__.load({
       .nas-facts a{color:inherit;text-decoration:underline;text-decoration-color:var(--nas-line);text-underline-offset:2px}
       .nas-fact-type{display:inline-flex;align-items:center;gap:5px}
       .nas-fact-dim{color:var(--nas-sub);font-variant-numeric:tabular-nums}
+      .nas-name-row{display:flex;align-items:center;gap:8px;min-width:0}
+      .nas-name-row input{flex:1;min-width:0}
+      .nas-name-preview{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+      .nas-input-icon .nas-gw-favicon{width:15px;height:15px;border-radius:3px}
       /* Tooltips: instant, themed, keyboard accessible. */
       .nas [data-tip]{position:relative}
       .nas [data-tip]::after{content:attr(data-tip);position:absolute;z-index:60;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);width:max-content;max-width:270px;padding:6px 9px;border-radius:7px;border:1px solid var(--nas-line);background:var(--dsw-alias-bg-overlay);color:var(--nas-text);font-size:11px;font-weight:400;line-height:1.55;text-align:left;white-space:pre-line;box-shadow:0 8px 24px color-mix(in srgb,var(--dsw-alias-label-primary) 16%,transparent);opacity:0;pointer-events:none;transition:opacity .12s}
@@ -643,7 +649,7 @@ window.__ModuleLoader__.load({
     }
     function ChannelEditor({ channel, revision, onClose, onSaved }) {
       const t = useT(); const prefix = useId();
-      const [form, setForm] = useState({ name: channel?.name || '', baseURL: channel?.baseURL || '', apiKey: '', activate: false });
+      const [form, setForm] = useState({ name: channel?.name || '', baseURL: channel?.baseURL || '', apiKey: '', activate: false, nameSuggested: false });
       const [tested, setTested] = useState(); const [validation, setValidation] = useState('');
       const [op, setOp] = useState(''); const [showKey, setShowKey] = useState(false); const a = useAction();
       const busy = Boolean(op);
@@ -663,7 +669,13 @@ window.__ModuleLoader__.load({
         setOp(kind);
         try { await a.run(fn); } finally { setOp(''); }
       };
-      const test = run('test', async () => setTested(await store.mutate('channel/test', { id: channel?.id, ...form, baseURL: form.baseURL.trim() }, { update: false })));
+      const test = run('test', async () => {
+        const result = await store.mutate('channel/test', { id: channel?.id, ...form, baseURL: form.baseURL.trim() }, { update: false });
+        setTested(result);
+        // Only an empty name is filled: a suggestion never overwrites an edit.
+        if (result?.ok && result.suggestedName) setForm((old) => (old.name.trim() ? old : { ...old, name: result.suggestedName, nameSuggested: true }));
+        return result;
+      });
       const save = run('save', async () => { await store.mutate('channel/save', { id: channel?.id, revision, ...form, baseURL: form.baseURL.trim() }); onSaved(); });
       const discard = () => { if (!dirty || window.confirm(t('changeDiscard'))) onClose(); };
       const sectionTitle = (n, key) => h('div', { className: 'nas-editor-section-title' }, h('span', null, n), t(key));
@@ -682,9 +694,15 @@ window.__ModuleLoader__.load({
           h('div', { style: { minWidth: 0, flex: 1 } }, h('div', { className: 'nas-sub' }, channel.name), h('code', null, channel.baseURL)),
           h(Badge, { tone: channel.active ? 'active' : '' }, channel.active && h(Icon, { name: 'check', size: 11 }), t(channel.active ? 'active' : 'inactive'))),
         h('section', { className: 'nas-editor-section first' }, sectionTitle('01', 'connectionSection'),
-          h(Field, { label: t('channelName'), htmlFor: `${prefix}-name` }, h('input', { id: `${prefix}-name`, value: form.name, onChange: set('name'), placeholder: t('channelNamePlaceholder'), maxLength: 80, autoFocus: true, 'data-autofocus': true, disabled: busy })),
+          h(Field, { label: t('channelName'), htmlFor: `${prefix}-name`, hint: form.nameSuggested && form.name ? t('nameSuggestedHint') : null },
+            h('div', { className: 'nas-name-row' },
+              form.nameSuggested && form.name && h('span', { className: 'nas-name-preview' }, h(GatewayMark, { family: tested?.family ?? channel?.backend?.family, icon: tested?.icon ?? channel?.backend?.icon, size: 15 })),
+              h('input', { id: `${prefix}-name`, value: form.name, onChange: set('name'), placeholder: t('channelNamePlaceholder'), maxLength: 80, autoFocus: true, 'data-autofocus': true, disabled: busy }))),
           h(Field, { label: t('address'), hint: t('addressHint'), htmlFor: `${prefix}-url` },
-            h('div', { className: 'nas-input-icon' }, h(Icon, { name: 'gateway', size: 14 }),
+            h('div', { className: 'nas-input-icon' },
+              (tested?.icon || channel?.backend?.icon)
+                ? h('img', { className: 'nas-gw-favicon', src: tested?.icon || channel?.backend?.icon, alt: '', width: 15, height: 15, decoding: 'async' })
+                : h(Icon, { name: 'gateway', size: 14 }),
               h('input', { id: `${prefix}-url`, type: 'url', value: form.baseURL, onChange: set('baseURL'), placeholder: 'https://api.example.com', spellCheck: false, autoComplete: 'off', disabled: busy })))),
         h('section', { className: 'nas-editor-section' }, sectionTitle('02', 'credentialSection'),
           h(Field, { label: t('apiKey'), hint: addressChanged ? t('keyRequiredForAddress') : t('keyHint'), htmlFor: `${prefix}-key` },
@@ -701,6 +719,7 @@ window.__ModuleLoader__.load({
             h('span', { className: 'nas-test-badge' }, h(Icon, { name: tested.ok ? 'check' : 'alert', size: 13 }), t(tested.ok ? 'testPassed' : 'failed')),
             tested.ok && h('span', { className: 'num' }, `${(tested.latencyMs / 1000).toFixed(2)}s`),
             tested.ok && h('span', { className: 'nas-sub', style: { marginLeft: 'auto' } }, `${tested.systemName || t('genericGateway')} ${tested.version || ''}`)),
+          tested.ok && tested.siteTitle && h('div', { className: 'nas-sub', style: { padding: '0 14px 10px', marginTop: -4 } }, tf('siteTitleLine', tested.siteTitle)),
           tested.ok
             ? h('div', { className: 'nas-test-stats' }, count('totalModels', tested.models?.total), count('chat', tested.models?.chat), count('image', tested.models?.image), count('video', tested.models?.video))
             : h('div', { className: 'nas-test-error' }, tested.error))
@@ -1398,7 +1417,7 @@ window.__ModuleLoader__.load({
         action: error ? h(Button, { icon: 'refresh', onClick: () => store.load() }, t('retry')) : null,
       }));
       const channels = state.channels || []; const active = channels.find((c) => c.id === state.activeChannel) || channels[0];
-      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.3' }, h(Styles), header,
+      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.4' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(Empty, { icon: 'gateway', title: t('noGateways'), detail: t('noGatewaysHint'),
           action: h(Button, { icon: 'plus', tone: 'primary', onClick: () => setEditor({ channel: null, revision: state.revision }) }, t('add')) }),
@@ -1408,7 +1427,7 @@ window.__ModuleLoader__.load({
       const modelChannel = channels.find((c) => c.id === modelChannelId) || active;
       const count = (kind) => entries.filter((e) => e.kind === kind).length;
       const operate = (path, ch, key) => a.run(async () => { await store.mutate(path, { id: ch.id, revision: state.revision }); notify(key); });
-      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.3' }, h(Styles), header,
+      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.4' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(ErrorText, { text: a.error || error }),
         h('div', { className: 'nas-summary' },

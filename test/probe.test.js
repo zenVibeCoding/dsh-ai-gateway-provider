@@ -291,3 +291,36 @@ test('identify: carries the site icon when there is one', async () => {
     assert.match(id.icon.dataUrl, /^data:image\/png;base64,/);
   } finally { await new Promise((r) => server.close(r)); }
 });
+
+test('probe: the add dialog gets the site title, icon and a suggested name', async () => {
+  const server = http.createServer((req, res) => {
+    if (req.url === '/') { res.writeHead(200, { 'content-type': 'text/html' }); res.end('<html><head><title>  Acme &amp; Co   Gateway </title><link rel="icon" href="/i.png"></head></html>'); return; }
+    if (req.url === '/i.png') { res.writeHead(200, { 'content-type': 'image/png' }); res.end(PNG_1PX); return; }
+    if (req.url === '/v1/models') { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"data":[{"id":"m"}]}'); return; }
+    res.writeHead(404); res.end();
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const baseURL = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const r = await probe({ baseURL, apiKey: 'sk-test-0123456789abcdefghij' });
+    assert.equal(r.backend.title, 'Acme & Co Gateway', 'entities decoded, whitespace collapsed');
+    assert.equal(r.backend.suggestedName, 'Acme & Co Gateway', 'the site title wins over the host');
+    assert.match(r.backend.icon.dataUrl, /^data:image\/png/);
+  } finally { await new Promise((r) => server.close(r)); }
+});
+
+test('probe: without a site title the backend name, then the host, is suggested', async () => {
+  const gw = await fakeGateway({
+    'GET /v1/models': models([{ id: 'm' }]),
+    'GET /api/status': () => [200, { data: { system_name: 'New API', version: 'v1' } }],
+  });
+  try {
+    const r = await probe({ baseURL: gw.base, apiKey: KEY });
+    assert.equal(r.backend.suggestedName, 'New API');
+  } finally { await gw.close(); }
+  const bare = await fakeGateway({ 'GET /v1/models': models([{ id: 'm' }]) });
+  try {
+    const r = await probe({ baseURL: bare.base, apiKey: KEY });
+    assert.equal(r.backend.suggestedName, bare.base.replace('http://', ''));
+  } finally { await bare.close(); }
+});

@@ -24,13 +24,14 @@ import { ModelsDev } from './lib/modelsdev.js';
 import { fingerprint, redact } from './lib/util.js';
 import { probe, identify, readQuota, gatewayRoot } from './lib/probe.js';
 import { ChannelService, resolveChannels } from './lib/channels.js';
+import { SiteFactsCache } from './lib/site-cache.js';
 import { ModelTester } from './lib/model-test.js';
 
 export const name = 'ai-gateway';
 export const inject = ['llm'];
 
 const ROUTE_PREFIX = '/ai-gateway/api/';
-const VERSION = '0.4.3';
+const VERSION = '0.4.4';
 const ENDPOINT_TYPES = ['openai', 'anthropic', 'openai-response', 'gemini'];
 const KINDS = ['chat', 'image', 'video', 'audio', 'embedding', 'other'];
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
@@ -292,16 +293,26 @@ export function apply(ctx, config) {
 
   const identities = new Map();
   const IDENTITY_TTL_MS = 30 * 60 * 1000;
+  const originOf = (url) => { try { return new URL(gatewayRoot(url)).origin; } catch { return gatewayRoot(url); } };
+  // Identification outlives the process: two requests per gateway, and its answer
+  // (family, version, icon, title) changes rarely.
+  const siteFacts = new SiteFactsCache({ logger: ctx.logger });
   const identityOf = async (ch, { force = false } = {}) => {
     const root = gatewayRoot(ch.baseURL);
+    const origin = originOf(root);
     const hit = identities.get(root);
     if (!force && hit && Date.now() - hit.at < IDENTITY_TTL_MS) return hit.value;
+    if (!force) {
+      const cached = siteFacts.get(origin);
+      if (cached) { identities.set(root, { at: Date.now(), value: cached }); return cached; }
+    }
     try {
       const value = await identify({ baseURL: root, headers: { ...(ch.headers ?? {}) } });
       identities.set(root, { at: Date.now(), value });
+      siteFacts.set(origin, value);
       return value;
     } catch {
-      return hit?.value;
+      return hit?.value ?? siteFacts.get(origin);
     }
   };
   /** What the page shows: the live identity when known, the saved probe facts otherwise. */
@@ -317,6 +328,7 @@ export function apply(ctx, config) {
       checkedAt: saved.checkedAt ?? null,
       info: known?.info ?? {},
       evidence: known?.evidence ?? null,
+      title: known?.title ?? saved.title ?? null,
       // The site's own favicon when it has one; the page falls back to the type icon.
       icon: known?.icon?.dataUrl ?? null,
     };
@@ -386,7 +398,22 @@ export function apply(ctx, config) {
     settings: () => ctx.get('settings'),
     keyFor,
     keyConfigured,
-    probe: ({ baseURL, apiKey, headers }) => probe({ baseURL, apiKey, headers }),
+    probe: (args) => probe(args),
+    onProbed: (report) => {
+      const origin = originOf(report.root ?? '');
+      if (!origin) return;
+      const known = siteFacts.get(origin);
+      siteFacts.set(origin, {
+        ...(known ?? {}),
+        family: report.backend?.family ?? known?.family ?? 'unknown',
+        name: report.backend?.name ?? known?.name ?? null,
+        version: report.backend?.version ?? known?.version ?? null,
+        info: report.backend?.info ?? known?.info ?? {},
+        suggestedName: report.backend?.suggestedName ?? known?.suggestedName,
+        ...(report.backend?.title ? { title: report.backend.title } : {}),
+        ...(report.backend?.icon ? { icon: report.backend.icon } : {}),
+      });
+    },
     storeKey: async (keyName, apiKey) => {
       const credentials = ctx.get('credentials');
       if (!credentials) throw Object.assign(new Error('the DSH credential service is unavailable'), { status: 503 });
@@ -402,6 +429,9 @@ export function apply(ctx, config) {
         baseURL: report.root,
         latencyMs: Date.now() - started,
         systemName: report.backend?.name ?? null,
+        siteTitle: report.backend?.title ?? null,
+        suggestedName: report.backend?.suggestedName ?? null,
+        icon: report.backend?.icon?.dataUrl ?? null,
         version: report.backend?.version ?? null,
         family: report.backend?.family ?? 'unknown',
         quotaKind: report.quota?.kind ?? null,
