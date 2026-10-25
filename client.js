@@ -1417,7 +1417,7 @@ window.__ModuleLoader__.load({
         action: error ? h(Button, { icon: 'refresh', onClick: () => store.load() }, t('retry')) : null,
       }));
       const channels = state.channels || []; const active = channels.find((c) => c.id === state.activeChannel) || channels[0];
-      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.4' }, h(Styles), header,
+      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.5.0' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(Empty, { icon: 'gateway', title: t('noGateways'), detail: t('noGatewaysHint'),
           action: h(Button, { icon: 'plus', tone: 'primary', onClick: () => setEditor({ channel: null, revision: state.revision }) }, t('add')) }),
@@ -1427,7 +1427,7 @@ window.__ModuleLoader__.load({
       const modelChannel = channels.find((c) => c.id === modelChannelId) || active;
       const count = (kind) => entries.filter((e) => e.kind === kind).length;
       const operate = (path, ch, key) => a.run(async () => { await store.mutate(path, { id: ch.id, revision: state.revision }); notify(key); });
-      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.4.4' }, h(Styles), header,
+      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.5.0' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(ErrorText, { text: a.error || error }),
         h('div', { className: 'nas-summary' },

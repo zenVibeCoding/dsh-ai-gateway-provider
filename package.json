@@ -1,10 +1,9 @@
 {
   "name": "dsh-ai-gateway-provider",
-  "version": "0.4.4",
-  "description": "Standard-first gateway provider for DeepSeek Harness: any OpenAI-compatible endpoint works, and known backends also report quota.",
+  "version": "0.5.0",
+  "description": "Any OpenAI-compatible gateway for DeepSeek Harness: probe it, save it, manage its models; known backends also report quota.",
   "license": "MIT",
   "author": "zenVibeCoding",
-  "private": true,
   "type": "module",
   "keywords": [
     "dsh",
@@ -12,7 +11,11 @@
     "deepseek-harness",
     "ai-gateway",
     "openai-compatible",
-    "llm-provider"
+    "llm-provider",
+    "new-api",
+    "cliproxy",
+    "litellm",
+    "one-api"
   ],
   "exports": {
     ".": "./index.js",
@@ -27,7 +30,11 @@
     "lib/*.js",
     "cordis.patch.yml",
     "locale/*.json",
-    "icon.svg"
+    "icon.svg",
+    "README.md",
+    "README.zh.md",
+    "LICENSE",
+    "PUBLISHING.md"
   ],
   "scripts": {
     "test": "node --test test/*.test.js",
@@ -60,6 +67,18 @@
     "@earendil-works/pi-ai": {
       "optional": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zenVibeCoding/dsh-ai-gateway-provider.git"
+  },
+  "homepage": "https://github.com/zenVibeCoding/dsh-ai-gateway-provider#readme",
+  "bugs": {
+    "url": "https://github.com/zenVibeCoding/dsh-ai-gateway-provider/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "dsh": {
     "bundle": {
