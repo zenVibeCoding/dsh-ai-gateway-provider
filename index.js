@@ -26,12 +26,13 @@ import { probe, identify, readQuota, gatewayRoot } from './lib/probe.js';
 import { ChannelService, resolveChannels } from './lib/channels.js';
 import { SiteFactsCache } from './lib/site-cache.js';
 import { ModelTester } from './lib/model-test.js';
+import { SERVICE_TIERS } from './lib/service-tiers.js';
 
 export const name = 'ai-gateway';
 export const inject = ['llm'];
 
 const ROUTE_PREFIX = '/ai-gateway/api/';
-const VERSION = '0.5.2';
+const VERSION = '0.6.0';
 const ENDPOINT_TYPES = ['openai', 'anthropic', 'openai-response', 'gemini'];
 const KINDS = ['chat', 'image', 'video', 'audio', 'embedding', 'other'];
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
@@ -52,6 +53,7 @@ const ModelOverride = z.object({
   thinkingLevelMap: z.dict(z.union([z.string(), z.const(null)])).default(undefined)
     .description('Per-level wire value: a string is sent upstream, null hides the level. Omitted levels fall back to the detected value.'),
   protocol: z.union(ENDPOINT_TYPES).description('Force the wire protocol for this model.'),
+  serviceTier: z.union(SERVICE_TIERS).default(undefined).description('OpenAI Chat/Responses service tier: default, priority (Fast), ultrafast. Unset sends nothing. Gateway declarations are not verified support; accelerated tiers may cost more.'),
   custom: z.boolean().description('Add this model even if the gateway does not list it.'),
 });
 
@@ -140,6 +142,9 @@ export function apply(ctx, config) {
       overridesRev: fingerprint(`${ch.id}|${JSON.stringify(overrides)}|${JSON.stringify(ch.enabledModels ?? null)}`),
       // Only gateways known to serve the pricing page are asked for it.
       fetchPricing: ch.backend?.family === 'new-api',
+      // CLIProxyAPI declares speed tiers only in its client catalog. New API never serves
+      // one, so it is not asked; an unrecognised gateway might, and the read is optional.
+      fetchTierCatalog: ch.backend?.family !== 'new-api' && ch.backend?.family !== 'litellm',
       endpointPriority: raw.endpointPriority?.length ? raw.endpointPriority : DEFAULT_ENDPOINT_PRIORITY,
       defaultContextWindow: raw.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
       defaultMaxTokens: raw.defaultMaxTokens ?? DEFAULT_MAX_TOKENS,

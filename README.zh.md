@@ -45,6 +45,27 @@ dsh-ai-gateway-provider
 
 每个模型的协议：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、Gemini。由网关的 `supported_endpoint_types` 决定，模型编辑器里可以覆盖。
 
+## GPT / OpenAI 速度档位
+
+模型编辑器里可以给每个模型设默认速度：跟随网关（不发送参数）、Standard（`default`）、Fast（`priority`）、Ultrafast（`ultrafast`）。只作用于当前网关的这个模型，影响使用它的所有会话；和推理等级互不影响。只有走 OpenAI Chat / Responses 协议的请求会带上 `service_tier`。
+
+**怎么判断一个模型支不支持**——按「这个网关 + 这个模型」判断，三种证据分开记：
+
+| 证据 | 来源 | 页面显示 |
+| --- | --- | --- |
+| 网关声明 | 网关模型目录里逐模型的 `service_tiers` / `supported_service_tiers` / `additional_speed_tiers`（CLIProxyAPI 在 `/v1/models?client_version=` 返回） | 编辑器里列出声明的档位，选项标「网关声明」 |
+| 实测 | 点「测试」，带上该档位发一次极短请求，看响应里回显的 `service_tier` | 测试结果旁：✓ 已生效 / ↓ 未生效（被过滤或降级）/ ? 无法确认 |
+| 手动尝试 | 网关没有声明时，勾选风险提示后自己选 | 虚线橙色徽标「手动指定」 |
+
+不根据模型名、网关品牌或 models.dev 猜测；空的声明列表表示「明确不支持加速」。耗时变短不算证据。
+
+**各网关的情况**：
+- **CLIProxyAPI**：会在客户端模型目录里声明（Codex 渠道的 GPT 模型通常声明 Fast）。
+- **New API**：默认会**过滤掉** `service_tier`（防止额外计费），需要管理员在渠道设置里开启「允许 service_tier 透传」，否则测试会显示「未生效」。
+- **其他网关**：通常没有声明，可以手动尝试，再用测试确认。
+
+加速档位通常额外计费。连接探测和目录读取都不调用模型；只有你点「测试」才会发一次请求。Anthropic / Gemini 的速度模式不在这次支持范围内。
+
 ## 添加网关
 
 ![添加网关](docs/screenshots/add.png)
@@ -73,7 +94,7 @@ dsh-ai-gateway-provider
 ## 开发
 
 ```sh
-npm test                                    # 94 项测试，基于本地假网关
+npm test                                    # 103 项测试，基于本地假网关
 node scripts/probe.mjs --base <url>         # 命令行探测
 GATEWAY_KEY=sk-... node scripts/probe.mjs --base <url>
 ```

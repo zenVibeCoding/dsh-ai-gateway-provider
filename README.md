@@ -45,6 +45,27 @@ The plugin never needs to recognise a vendor — recognition only decides the ic
 
 Wire protocols per model: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Gemini. The gateway's `supported_endpoint_types` decides; the model editor can override.
 
+## GPT / OpenAI speed tiers
+
+The model editor sets a default speed per model: Follow gateway (send nothing), Standard (`default`), Fast (`priority`), Ultrafast (`ultrafast`). It applies to this model on this gateway across sessions and is independent of reasoning effort. Only OpenAI Chat / Responses requests carry `service_tier`.
+
+**How support is decided** — per gateway and model, with three kinds of evidence kept apart:
+
+| Evidence | Source | Shown as |
+| --- | --- | --- |
+| Gateway declaration | per-model `service_tiers` / `supported_service_tiers` / `additional_speed_tiers` in the gateway catalog (CLIProxyAPI serves it at `/v1/models?client_version=`) | declared tiers in the editor, options marked *declared* |
+| Test | **Test** sends one tiny request with the tier and reads the `service_tier` the response is stamped with | next to the result: ✓ in effect / ↓ not in effect (filtered or downgraded) / ? unconfirmed |
+| Manual trial | when nothing is declared, you choose after acknowledging the risk | dashed amber badge *Manual* |
+
+Nothing is inferred from model names, gateway brands or models.dev; an empty declared list means "no accelerated tier". Lower latency is not evidence.
+
+**Per gateway**:
+- **CLIProxyAPI** declares tiers in its client catalog (Codex-backed GPT models usually declare Fast).
+- **New API** **strips** `service_tier` by default to avoid surprise billing; an admin must enable *allow service_tier passthrough* on the channel, or tests will report *not in effect*.
+- **Other gateways** usually declare nothing: try manually, then confirm with a test.
+
+Accelerated tiers usually cost more. Probes and catalog reads never call a model; only pressing **Test** sends a request. Anthropic / Gemini speed modes are not part of this release.
+
 ## Add a gateway
 
 ![Add gateway](docs/screenshots/add.png)
@@ -73,7 +94,7 @@ Only one gateway is active at a time; switching affects every session using the 
 ## Development
 
 ```sh
-npm test                                    # 94 tests against local fake gateways
+npm test                                    # 103 tests against local fake gateways
 node scripts/probe.mjs --base <url>         # probe from a shell
 GATEWAY_KEY=sk-... node scripts/probe.mjs --base <url>
 ```

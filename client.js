@@ -24,6 +24,15 @@ window.__ModuleLoader__.load({
       credentialSet: '凭据已设置', credentialMissing: '未设置凭据', failed: '连接异常', loading: '正在加载…', retry: '重试',
       sidebarBalanceHint: '点击刷新额度',
       loadFailed: '无法读取渠道数据', loadFailedHint: '如果刚重启过 DSH，请确认插件已加载后再试。',
+      speedSection: '速度档位 · OpenAI', speedLabel: '此网关下该模型的默认速度',
+      speedAuto: '跟随网关（不发送档位参数）', speedDefault: 'Standard（发送 default）', speedFast: 'Fast（发送 priority）', speedUltra: 'Ultrafast（发送 ultrafast）',
+      speedDeclared: '网关声明的档位', speedUnknown: '能力未知：网关没有提供可识别的档位声明。', speedUnavailable: '网关未声明任何加速档位。',
+      speedScope: '独立于推理等级。设置仅作用于此网关的这个模型，会影响使用它的所有会话；仅适用 OpenAI Chat / Responses 协议。',
+      speedManual: '手动尝试未声明的档位（未验证，可能额外收费或被网关忽略）',
+      speedCaution: '网关声明不等于实测，加速档位通常额外计费。保存后点「测试」：只有响应里回显了该档位，才算已生效；耗时变短不算证据。',
+      speedProtocol: 'Anthropic / Gemini 协议不使用此参数，请保留“跟随网关”。', speedMapping: '上游映射已变更，当前档位声明暂不可用。保存映射后重新打开以读取目标模型的能力。',
+      speedInvalid: '此档位未被网关声明支持，或不适用于当前协议。请选择跟随网关，或检查配置。', speedManualRequired: '请先确认手动尝试未声明档位的风险。', speedBadgeUnknown: '手动指定 · 未经网关声明',
+      speedDeclaredShort: '网关声明', tier_verified: '已生效（响应回显该档位）', tier_downgraded: '未生效（响应为其他档位，可能被网关过滤或降级）', tier_unconfirmed: '无法确认（响应未回显档位）', tierReturned: '响应档位',
       hideModelTip: '隐藏：不出现在对话的模型选择器里', showModelTip: '取消隐藏',
       hideGroupTip: (name, n) => `隐藏 ${name} 组的 ${n} 个模型`, showGroupTip: (name, n) => `取消隐藏 ${name} 组的 ${n} 个模型`,
       groupHidden: (n) => `已隐藏 ${n}`,
@@ -125,6 +134,15 @@ window.__ModuleLoader__.load({
       credentialSet: 'Credential set', credentialMissing: 'No credential', failed: 'Connection issue', loading: 'Loading…', retry: 'Retry',
       sidebarBalanceHint: 'Click to refresh the quota',
       loadFailed: 'Could not read gateway data', loadFailedHint: 'If DSH was just restarted, make sure the plugin is loaded and try again.',
+      speedSection: 'Speed tier · OpenAI', speedLabel: 'Default speed for this model on this gateway',
+      speedAuto: 'Follow gateway (omit tier parameter)', speedDefault: 'Standard (send default)', speedFast: 'Fast (send priority)', speedUltra: 'Ultrafast (send ultrafast)',
+      speedDeclared: 'Gateway-declared tiers', speedUnknown: 'Unknown capability: no recognized tier declaration from the gateway.', speedUnavailable: 'The gateway declares no accelerated tiers.',
+      speedScope: 'Independent of reasoning effort. Applies to this model on this gateway across all sessions; OpenAI Chat / Responses only.',
+      speedManual: 'Manually try undeclared tiers (unverified; may cost more or be ignored)',
+      speedCaution: 'A declaration is not verification, and accelerated tiers usually cost more. Save, then Test: only a response stamped with the tier proves it was used; lower latency is not evidence.',
+      speedProtocol: 'Anthropic / Gemini protocols do not use this parameter. Keep Follow gateway selected.', speedMapping: 'Upstream mapping changed. Save it and reopen the editor to read the target model’s tier declaration.',
+      speedInvalid: 'This tier is not declared supported, or the selected protocol cannot use it. Follow the gateway or review the configuration.', speedManualRequired: 'Acknowledge the risks before manually trying an undeclared tier.', speedBadgeUnknown: 'Manual · unverified',
+      speedDeclaredShort: 'declared', tier_verified: 'in effect (response stamped with this tier)', tier_downgraded: 'not in effect (response used another tier; filtered or downgraded)', tier_unconfirmed: 'unconfirmed (response named no tier)', tierReturned: 'response tier',
       hideModelTip: 'Hide: keep it out of the chat model picker', showModelTip: 'Unhide',
       hideGroupTip: (name, n) => `Hide ${n} ${name} models`, showGroupTip: (name, n) => `Unhide ${n} ${name} models`,
       groupHidden: (n) => `${n} hidden`,
@@ -217,6 +235,7 @@ window.__ModuleLoader__.load({
       const v = activeDict()[key] ?? ZH[key];
       return typeof v === 'function' ? v(...args) : (v ?? key);
     }
+    function tierName(tier) { return { default: 'Standard', priority: 'Fast', ultrafast: 'Ultrafast' }[tier] || tier; }
     function useT() {
       const [, rerender] = useState(0);
       useEffect(() => locale?.subscribe(() => rerender((x) => x + 1)), []);
@@ -354,7 +373,7 @@ window.__ModuleLoader__.load({
       .nas-summary{display:grid;grid-template-columns:1.1fr 1fr .85fr;border:1px solid var(--nas-line);border-radius:11px;background:var(--nas-bg);margin-bottom:22px;overflow:hidden}.nas-stat{padding:16px 19px;min-width:0}.nas-stat+.nas-stat{border-left:1px solid var(--nas-line)}.nas-stat-label{font-size:11px;color:var(--nas-sub);margin-bottom:7px}.nas-stat-value{font-size:21px;font-variant-numeric:tabular-nums;line-height:1.3;letter-spacing:-.4px;overflow-wrap:anywhere}.nas-stat-value.name{font-size:17px;font-weight:600}.nas-stat-foot{font-size:11px;color:var(--nas-sub);margin-top:5px;overflow-wrap:anywhere}
       .nas-tabs{display:flex;gap:24px;border-bottom:1px solid var(--nas-line);margin-bottom:18px}.nas-tab{display:flex;align-items:center;gap:7px;padding:10px 1px 12px;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--nas-sub);font-weight:500}.nas-tab.selected{color:var(--nas-text);border-bottom-color:var(--nas-brand)}.nas-count{font-size:10px;min-width:18px;padding:0 5px;background:var(--nas-raised);border-radius:4px;color:var(--nas-sub);font-variant-numeric:tabular-nums}.nas-section-intro{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 15px}.nas-section-intro p{margin:0;color:var(--nas-sub);font-size:12px;max-width:660px}
       .nas-channels{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}.nas-channel{position:relative;border:1px solid var(--nas-line);border-radius:10px;background:var(--nas-bg);padding:16px;min-width:0;display:flex;flex-direction:column;gap:13px}.nas-channel.is-active{border-color:var(--nas-brand);box-shadow:inset 3px 0 var(--nas-brand)}.nas-channel-top{display:flex;align-items:center;gap:10px}.nas-channel-mark{width:34px;height:34px;border-radius:8px;background:var(--nas-raised);color:var(--nas-sub);display:flex;align-items:center;justify-content:center;flex-shrink:0}.nas-channel.is-active .nas-channel-mark{color:var(--nas-brand)}.nas-channel-title{flex:1;min-width:0}.nas-channel-title strong{font-size:14px;font-weight:600;display:block;overflow-wrap:anywhere}.nas-url{font-size:11px;color:var(--nas-sub);overflow-wrap:anywhere;line-height:1.5}.nas-channel-meta{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-size:11px;color:var(--nas-sub)}.nas-dot{width:5px;height:5px;border-radius:50%;background:var(--nas-sub);display:inline-block;flex-shrink:0}.nas-dot.ok{background:var(--dsw-alias-state-success-primary)}.nas-dot.warn{background:var(--dsw-alias-state-warn-primary)}.nas-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;line-height:18px;border-radius:4px;padding:0 6px;background:var(--nas-raised);color:var(--nas-sub);white-space:nowrap}.nas-badge.active{color:var(--nas-brand);background:color-mix(in srgb,var(--nas-brand) 9%,transparent)}.nas-badge.warn{color:var(--dsw-alias-state-warn-primary)}.nas-badge.good{color:var(--dsw-alias-state-success-primary)}.nas-badge.error{color:var(--dsw-alias-state-error-primary)}.nas-channel-quota{font-size:19px;letter-spacing:-.3px;font-variant-numeric:tabular-nums}.nas-channel-bottom{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--nas-line);padding-top:12px;margin-top:auto;gap:10px}.nas-note{display:flex;gap:7px;align-items:flex-start;color:var(--nas-sub);font-size:11px;line-height:1.6;margin-top:14px}.nas-note svg{flex-shrink:0;margin-top:2px}.nas-empty{padding:36px 20px;border:1px dashed var(--nas-line);border-radius:10px;text-align:center;color:var(--nas-sub);font-size:13px}.nas-empty svg{display:block;margin:0 auto 10px}.nas-empty strong{display:block;color:var(--nas-text);font-weight:500;margin:8px 0}.nas-error{border:1px solid color-mix(in srgb,var(--dsw-alias-state-error-primary) 30%,transparent);color:var(--dsw-alias-state-error-primary);background:var(--nas-bg);padding:10px 12px;border-radius:7px;font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap}.nas-feedback{display:flex;align-items:center;gap:7px;border:1px solid var(--nas-line);padding:9px 12px;border-radius:7px;color:var(--dsw-alias-state-success-primary);font-size:12px;margin-bottom:15px}
-      .nas-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}.nas-search{display:flex;align-items:center;gap:8px;flex:1;min-width:180px;border:1px solid var(--nas-line);background:var(--nas-bg);padding:0 10px;border-radius:7px;color:var(--nas-sub)}.nas-search input{border:0;outline:0;background:transparent;padding:7px 0;color:var(--nas-text);width:100%;font-size:12px;min-width:0}.nas-search:focus-within{border-color:var(--nas-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--nas-brand) 14%,transparent)}.nas-search input:focus,.nas-search input:focus-visible{outline:0}.nas-filter{display:flex;gap:3px;flex-wrap:wrap}.nas-filter button{border:0;background:transparent;border-radius:5px;padding:5px 8px;color:var(--nas-sub);font-size:12px}.nas-filter button[aria-pressed=true]{background:var(--nas-raised);color:var(--nas-text)}.nas-models{border:1px solid var(--nas-line);border-radius:9px}.nas-model-head.v2{border-radius:8px 8px 0 0}.nas-model-row.v2:last-child{border-radius:0 0 8px 8px}.nas-model-head,.nas-model-row{display:grid;grid-template-columns:minmax(150px,1.25fr) minmax(150px,1.1fr) minmax(90px,.7fr) 32px;gap:16px;align-items:center;padding:11px 14px}.nas-model-head{background:var(--nas-raised);font-size:11px;color:var(--nas-sub);padding-top:8px;padding-bottom:8px}.nas-model-row+.nas-model-row{border-top:1px solid var(--nas-line)}.nas-model-row{background:var(--nas-bg)}.nas-model-name{font-weight:500;font-size:12px;overflow-wrap:anywhere;line-height:1.55}.nas-model-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.nas-model-cap{font-size:11px;color:var(--nas-sub)}.nas-model-cap strong{font-weight:550;color:var(--nas-text);font-variant-numeric:tabular-nums}.nas-model-source{font-size:11px;color:var(--nas-sub)}.nas-hide>.nas-model-identity,.nas-hide>.nas-model-cap,.nas-hide>.nas-test-cell{opacity:.5}
+      .nas-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}.nas-search{display:flex;align-items:center;gap:8px;flex:1;min-width:180px;border:1px solid var(--nas-line);background:var(--nas-bg);padding:0 10px;border-radius:7px;color:var(--nas-sub)}.nas-search input{border:0;outline:0;background:transparent;padding:7px 0;color:var(--nas-text);width:100%;font-size:12px;min-width:0}.nas-search:focus-within{border-color:var(--nas-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--nas-brand) 14%,transparent)}.nas-search input:focus,.nas-search input:focus-visible{outline:0}.nas-filter{display:flex;gap:3px;flex-wrap:wrap}.nas-filter button{border:0;background:transparent;border-radius:5px;padding:5px 8px;color:var(--nas-sub);font-size:12px}.nas-filter button[aria-pressed=true]{background:var(--nas-raised);color:var(--nas-text)}.nas-models{border:1px solid var(--nas-line);border-radius:9px}.nas-model-head.v2{border-radius:8px 8px 0 0}.nas-model-row.v2:last-child{border-radius:0 0 8px 8px}.nas-model-head,.nas-model-row{display:grid;grid-template-columns:minmax(150px,1.25fr) minmax(150px,1.1fr) minmax(90px,.7fr) 32px;gap:16px;align-items:center;padding:11px 14px}.nas-model-head{background:var(--nas-raised);font-size:11px;color:var(--nas-sub);padding-top:8px;padding-bottom:8px}.nas-model-row+.nas-model-row{border-top:1px solid var(--nas-line)}.nas-model-row{background:var(--nas-bg)}.nas-model-name{font-weight:500;font-size:12px;overflow-wrap:anywhere;line-height:1.55}.nas-model-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.nas-model-cap{font-size:11px;color:var(--nas-sub)}.nas-model-cap strong{font-weight:550;color:var(--nas-text);font-variant-numeric:tabular-nums}.nas-model-source{font-size:11px;color:var(--nas-sub)}.nas-speed-badge{flex-shrink:0;display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:550;color:var(--nas-brand);border:1px solid color-mix(in srgb,var(--nas-brand) 35%,transparent);border-radius:4px;padding:0 5px;margin-left:6px;white-space:nowrap}.nas-speed-badge.manual{color:var(--dsw-alias-state-warn-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 40%,transparent);border-style:dashed}.nas-tier-verdict{display:inline-flex;align-items:center;gap:1px;font-size:10px;font-weight:600}.nas-tier-verdict.verified{color:var(--dsw-alias-state-success-primary)}.nas-tier-verdict.downgraded{color:var(--dsw-alias-state-warn-primary)}.nas-tier-verdict.unconfirmed{color:var(--nas-sub)}.nas-hide>.nas-model-identity,.nas-hide>.nas-model-cap,.nas-hide>.nas-test-cell{opacity:.5}
       .nas-hide .nas-model-name{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--nas-sub) 60%,transparent)}.nas-model-sub{font-size:10px;color:var(--nas-sub);margin-top:2px}.nas-settings-foot{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:8px;color:var(--nas-sub);font-size:10px;border-top:1px solid var(--nas-line);padding-top:12px;margin-top:22px}.nas-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}.nas-gallery figure{margin:0;border:1px solid var(--nas-line);border-radius:8px;overflow:hidden}.nas-gallery img,.nas-gallery video{display:block;width:100%;height:150px;object-fit:contain;background:var(--nas-raised)}.nas-gallery figcaption{padding:8px;font-size:11px;color:var(--nas-sub);overflow-wrap:anywhere}.nas-task{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--nas-line)}
       .nas-dialog{max-width:580px;width:calc(100% - 40px);max-height:calc(100vh - 64px);border:1px solid var(--nas-line);border-radius:12px;background:var(--dsw-alias-bg-overlay);color:var(--nas-text);padding:0;overflow:auto;box-shadow:0 16px 60px color-mix(in srgb,var(--dsw-alias-label-primary) 16%,transparent)}.nas-dialog::backdrop{background:color-mix(in srgb,var(--dsw-alias-bg-base) 60%,transparent);backdrop-filter:blur(3px)}.nas-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 24px 14px}.nas-dialog-head h3{margin:0 0 5px;font-size:17px;font-weight:600}.nas-dialog-body{padding:4px 24px 20px}.nas-dialog-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:14px 24px;border-top:1px solid var(--nas-line);background:var(--nas-bg)}.nas-field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;font-size:12px}.nas-field>label{font-weight:500}.nas-field small{font-size:11px;color:var(--nas-sub);font-weight:400}.nas-field input:not([type=checkbox]),.nas-field select{width:100%;height:35px;border:1px solid var(--nas-line);border-radius:6px;background:var(--nas-bg);color:var(--nas-text);padding:6px 10px;min-width:0;outline:none}.nas-field input:focus,.nas-field select:focus{border-color:var(--nas-brand)}.nas-fieldset{border:0;padding:0;margin:0 0 16px}.nas-fieldset legend{font-weight:500;font-size:12px;margin-bottom:8px}.nas-checks{display:flex;gap:12px;flex-wrap:wrap}.nas-check{display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;color:var(--nas-text);font-weight:400}.nas-check input{accent-color:var(--nas-brand);width:14px;height:14px;margin:0}.nas-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.nas-field-error{color:var(--dsw-alias-state-error-primary);font-size:11px}.nas-test{border:1px solid var(--nas-line);border-radius:7px;padding:11px 12px;font-size:12px;margin-top:12px}.nas-test.ok strong{color:var(--dsw-alias-state-success-primary)}.nas-test.bad{color:var(--dsw-alias-state-error-primary)}.nas-test small{display:block;color:var(--nas-sub);margin-top:3px}.nas-prompt{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--nas-sub);margin-top:8px}.nas-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--nas-sub);background:transparent;border:1px solid var(--nas-line);border-radius:7px;padding:2px 8px;cursor:pointer}.nas-preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.nas-preview img,.nas-preview video{display:block;max-width:100%;max-height:280px;border-radius:8px;border:1px solid var(--nas-line)}.nas-spin{animation:nas-spin .9s linear infinite}@keyframes nas-spin{to{transform:rotate(360deg)}}
       @media(max-width:760px){.nas-head{flex-direction:column;gap:12px}.nas-head h2{font-size:20px}.nas-stat{padding:13px}.nas-stat-value{font-size:18px}.nas-summary{grid-template-columns:1fr 1fr}.nas-stat:last-child{grid-column:1/-1;border-left:0;border-top:1px solid var(--nas-line)}.nas-model-head,.nas-model-row{grid-template-columns:minmax(110px,1fr) minmax(140px,1fr) 29px;gap:10px;padding:10px}.nas-model-head>:nth-child(3),.nas-model-row>.nas-model-source{display:none}.nas-tabs{gap:18px}.nas-two{grid-template-columns:1fr;gap:0}.nas-dialog-head{padding:18px 18px 12px}.nas-dialog-body{padding:4px 18px 16px}.nas-dialog-foot{padding:12px 18px}.nas-discover .nas-dialog-body{padding:0 18px}}
@@ -867,15 +886,23 @@ window.__ModuleLoader__.load({
         // Custom rows: level id plus the wire value it sends ('' means "no value", i.e. off/none).
         rows: rowsFromMap(initial.thinkingLevelMap, model.automaticReasoningLevels, model.automaticThinkingLevelMap),
         hidden: Boolean(initial.hidden),
+        serviceTier: initial.serviceTier || '',
       });
+      const [manualSpeed, setManualSpeed] = useState(Boolean(initial.serviceTier));
       const original = useRef(JSON.stringify(form)); const dirty = original.current !== JSON.stringify(form);
       const [invalid, setInvalid] = useState(''); const [resetting, setResetting] = useState(false);
       const target = form.upstreamModel.trim() || model.id;
       const mappingChanged = target !== (initial.upstreamModel || model.id);
+      const speedInfo = model.speedTiers || { source: 'unknown', tiers: [] };
+      const speedDeclared = !mappingChanged && speedInfo.source === 'gateway';
+      const speedProtocolBlocked = form.protocol ? !['openai', 'openai-response'].includes(form.protocol) : speedInfo.compatible === false;
+      const speedIsDeclared = (tier) => speedDeclared && speedInfo.tiers.includes(tier);
+      const speedAllowed = (tier) => !tier || (!speedProtocolBlocked && !mappingChanged && (tier === 'default' || speedIsDeclared(tier) || manualSpeed));
       const changed = (k) => (e) => { setInvalid(''); setResetting(false); setForm({ ...form, [k]: e.target.value }); };
       const discard = () => { if (!dirty || window.confirm(t('changeDiscard'))) onClose(); };
       const save = () => {
         if (a.pending) return;
+        if (!speedAllowed(form.serviceTier)) return setInvalid(t(!manualSpeed && !mappingChanged && !speedProtocolBlocked ? 'speedManualRequired' : 'speedInvalid'));
         for (const k of ['contextWindow', 'maxTokens']) if (form[k] && (!/^\d+$/.test(form[k]) || Number(form[k]) < 1 || !Number.isSafeInteger(Number(form[k])))) return setInvalid(t('positiveInteger'));
         if (form.upstreamModel.trim() && (/\s|[\u0000-\u001f\u007f-\u009f]/u.test(form.upstreamModel.trim()) || form.upstreamModel.trim().length > 500)) return setInvalid(t('invalidMapping'));
         if (form.levelsMode === 'custom') {
@@ -899,6 +926,7 @@ window.__ModuleLoader__.load({
         const detected = model.automaticThinkingLevelMap;
         override.thinkingLevelMap = sameLevelMap(edited, detected) ? null : edited;
         override.hidden = form.hidden ? true : null;
+        override.serviceTier = form.serviceTier || null;
         return a.run(async () => { await store.mutate('model/override', { revision, channelId: channel.id, modelId: model.id, override }); onSaved(false); });
       };
       const reset = () => a.run(async () => { await store.mutate('model/override', { revision, channelId: channel.id, modelId: model.id, override: null, reset: true }); onSaved(true); });
@@ -944,6 +972,15 @@ window.__ModuleLoader__.load({
             onToggle: () => setForm({ ...form, levelsMode: form.levelsMode === 'custom' ? 'auto' : 'custom' }),
             onChange: (rows) => setForm({ ...form, rows }),
           })),
+        (form.kind || model.kind) === 'chat' && h('section', { className: 'nas-editor-section' }, sectionTitle('03', 'speedSection'),
+          h('div', { className: 'nas-note', style: { marginBottom: 12 } }, t('speedScope')),
+          h('div', { className: 'nas-note', style: { marginBottom: 12 }, role: 'status' },
+            mappingChanged ? t('speedMapping') : speedDeclared ? `${t('speedDeclared')}: ${speedInfo.tiers.length ? speedInfo.tiers.filter((x) => x !== 'default').map(tierName).join(' / ') : t('speedUnavailable')}` : t('speedUnknown')),
+          !mappingChanged && !speedProtocolBlocked && !['priority', 'ultrafast'].every(speedIsDeclared) && h('div', { style: { marginBottom: 12 } }, h(Check, { checked: manualSpeed, disabled: a.pending, onChange: (value) => { setManualSpeed(value); if (!value && ['priority', 'ultrafast'].includes(form.serviceTier) && !speedIsDeclared(form.serviceTier)) setForm({ ...form, serviceTier: '' }); } }, t('speedManual'))),
+          h(Field, { label: t('speedLabel'), htmlFor: `${id}-service-tier` }, h('select', { id: `${id}-service-tier`, value: form.serviceTier, disabled: a.pending, onChange: changed('serviceTier') },
+            [['', 'speedAuto'], ['default', 'speedDefault'], ['priority', 'speedFast'], ['ultrafast', 'speedUltra']].map(([value, label]) => h('option', { key: value, value, disabled: !speedAllowed(value) }, `${t(label)}${['priority', 'ultrafast'].includes(value) && speedIsDeclared(value) ? ` · ${t('speedDeclaredShort')}` : ''}`)))),
+          speedProtocolBlocked && h('div', { className: 'nas-note' }, t('speedProtocol')),
+          h('div', { className: 'nas-note' }, t('speedCaution'))),
         h('details', { className: 'nas-editor-advanced' }, h('summary', null, t('advancedOptions')),
           h('div', { className: 'nas-two' },
             h(Field, { label: t('kind'), htmlFor: `${id}-kind` }, h('select', { id: `${id}-kind`, value: form.kind, onChange: changed('kind'), disabled: a.pending }, h('option', { value: '' }, t('auto')), ['chat', 'image', 'video', 'audio', 'embedding', 'other'].map((k) => h('option', { key: k, value: k }, t(k))))),
@@ -1088,11 +1125,14 @@ window.__ModuleLoader__.load({
         pending ? `${t('acceptedTest')} · ${t('checkGeneration')}` : !r.ok ? errorLabel(t, r) : null,
         `${t('total')} ${duration}`,
         r.firstByteMs != null ? `${t('firstByte')} ${(r.firstByteMs / 1000).toFixed(2)}s` : null,
+        r.tierOutcome ? `${tierName(r.requestedServiceTier)} · ${t('tier_' + r.tierOutcome)}${r.returnedServiceTier ? ` (${t('tierReturned')} ${r.returnedServiceTier})` : ''}` : null,
         r.testedAt ? `${t('testedAt')} ${ago(r.testedAt)}` : null,
       ].filter(Boolean).join('\n');
       return h('div', { className: 'nas-test-cell compact', title: detail, 'aria-label': `${label} ${detail}` },
         h('span', { className: `nas-test-status ${pending ? 'pending' : r.ok ? 'ok' : 'bad'}` }, h('span', { className: 'nas-result-dot', 'aria-hidden': true }), label),
-        h('span', { className: 'num' }, duration));
+        h('span', { className: 'num' }, duration),
+        r.tierOutcome && h('span', { className: `nas-tier-verdict ${r.tierOutcome}`, role: 'img', 'aria-label': `${tierName(r.requestedServiceTier)} ${t('tier_' + r.tierOutcome)}` },
+          h(Icon, { name: 'bolt', size: 10 }), r.tierOutcome === 'verified' ? '✓' : r.tierOutcome === 'downgraded' ? '↓' : '?'));
     }
     function PaidTestDialog({ channel, model, onClose }) {
       const t = useT(); const [result, setResult] = useState(); const [busy, setBusy] = useState(false);
@@ -1378,6 +1418,7 @@ window.__ModuleLoader__.load({
                 h(VendorIcon, { vendor: m.vendor, modelId: m.id }),
                 h('span', { className: 'nas-model-name', 'data-tip': [m.name || m.id, m.id, t(m.kind), m.hidden ? t('hidden') : null, m.source?.overridden?.length ? t('overridden') : null].filter(Boolean).join('\n') }, m.name || m.id),
                 m.upstreamModel && m.upstreamModel !== m.id && h('span', { style: { display: 'inline-flex', color: 'var(--nas-sub)' }, 'data-tip': `${t('upstreamModel')}: ${m.upstreamModel}`, role: 'img', 'aria-label': `${t('upstreamModel')}: ${m.upstreamModel}` }, h(Icon, { name: 'arrow', size: 12 })),
+                m.speedTiers?.selected && m.speedTiers.selected !== 'default' && h('span', { className: `nas-speed-badge ${m.speedTiers.selectionSource === 'manual' ? 'manual' : ''}`, 'data-tip': [`${t('speedLabel')}: ${tierName(m.speedTiers.selected)}`, t(m.speedTiers.selectionSource === 'manual' ? 'speedBadgeUnknown' : 'speedDeclared'), m.speedTiers.validationError].filter(Boolean).join('\n') }, h(Icon, { name: 'bolt', size: 10 }), tierName(m.speedTiers.selected)),
                 m.hidden && h('span', { className: 'nas-hidden-badge' }, t('hidden')),
                 m.availability === 'missing' && h('span', { className: 'nas-status-mark', 'data-tip': t('missingBadge'), role: 'img', 'aria-label': t('missingBadge') }, h(Icon, { name: 'alert', size: 13 }))),
               h('div', { className: 'nas-model-cap compact', 'data-tip-align': 'start', 'data-tip': [
@@ -1385,6 +1426,7 @@ window.__ModuleLoader__.load({
                 `${t('source')}: ${m.source?.modelsDev?.provider || t('defaults')} · ${t(m.source?.modelsDev ? m.source.modelsDev.match === 'prefix' ? 'originPrefix' : 'originExact' : 'originNone')}`,
                 m.source?.overridden?.length ? `${t('overridden')}: ${m.source.overridden.join(', ')}` : null,
                 m.reasoning && m.reasoningLevels?.length ? `${t('reasoningLevels')}: ${m.reasoningLevels.map((l) => t('level_' + l)).join(' / ')}` : null,
+                m.kind === 'chat' ? (m.speedTiers?.source === 'gateway' ? `${t('speedDeclared')}: ${m.speedTiers.tiers.filter((x) => x !== 'default').map(tierName).join(' / ') || t('speedUnavailable')}` : t('speedUnknown')) : null,
               ].filter(Boolean).join('\n') },
                 m.kind === 'chat' ? h('span', { className: 'nas-cap-numbers' }, tokens(m.effectiveContextWindow), h('span', { className: 'nas-cap-divider' }, ' / '), tokens(m.effectiveMaxTokens)) : h('span', null, t(m.kind)),
                 h('span', { className: 'nas-cap-icons' },
@@ -1453,7 +1495,7 @@ window.__ModuleLoader__.load({
         action: error ? h(Button, { icon: 'refresh', onClick: () => store.load() }, t('retry')) : null,
       }));
       const channels = state.channels || []; const active = channels.find((c) => c.id === state.activeChannel) || channels[0];
-      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.5.2' }, h(Styles), header,
+      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.6.0' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(Empty, { icon: 'gateway', title: t('noGateways'), detail: t('noGatewaysHint'),
           action: h(Button, { icon: 'plus', tone: 'primary', onClick: () => setEditor({ channel: null, revision: state.revision }) }, t('add')) }),
@@ -1463,7 +1505,7 @@ window.__ModuleLoader__.load({
       const modelChannel = channels.find((c) => c.id === modelChannelId) || active;
       const count = (kind) => entries.filter((e) => e.kind === kind).length;
       const operate = (path, ch, key) => a.run(async () => { await store.mutate(path, { id: ch.id, revision: state.revision }); notify(key); });
-      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.5.2' }, h(Styles), header,
+      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.6.0' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(ErrorText, { text: a.error || error }),
         h('div', { className: 'nas-summary' },
