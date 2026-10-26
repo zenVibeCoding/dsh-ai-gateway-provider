@@ -49,6 +49,8 @@ dsh-ai-gateway-provider
 
 模型编辑器里可以给每个模型设默认速度：跟随网关（不发送参数）、Standard（`default`）、Fast（`priority`）、Ultrafast（`ultrafast`）。只作用于当前网关的这个模型，影响使用它的所有会话；和推理等级互不影响。只有走 OpenAI Chat / Responses 协议的请求会带上 `service_tier`。
 
+**对话里切换**：当前模型是 AI Gateway 的模型、且有速度档位依据（网关声明、实测生效或编辑器里设过）时，输入框右下、模型按钮左边会出现「⚡ 速度」按钮，可为**当前会话**选 Standard / Fast / Ultrafast，菜单里标明每个档位的依据。这里的选择只对当前会话的这个模型生效，不改模型默认值；没选过的会话沿用编辑器里的默认档位。（DSH 的模型菜单没有给插件留扩展行，所以放在它旁边。）
+
 **怎么判断一个模型支不支持**——按「这个网关 + 这个模型」判断，三种证据分开记：
 
 | 证据 | 来源 | 页面显示 |
@@ -94,7 +96,7 @@ dsh-ai-gateway-provider
 ## 开发
 
 ```sh
-npm test                                    # 103 项测试，基于本地假网关
+npm test                                    # 105 项测试，基于本地假网关
 node scripts/probe.mjs --base <url>         # 命令行探测
 GATEWAY_KEY=sk-... node scripts/probe.mjs --base <url>
 ```

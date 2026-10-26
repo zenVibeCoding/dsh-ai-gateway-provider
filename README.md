@@ -49,6 +49,8 @@ Wire protocols per model: OpenAI Chat Completions, OpenAI Responses, Anthropic M
 
 The model editor sets a default speed per model: Follow gateway (send nothing), Standard (`default`), Fast (`priority`), Ultrafast (`ultrafast`). It applies to this model on this gateway across sessions and is independent of reasoning effort. Only OpenAI Chat / Responses requests carry `service_tier`.
 
+**Switching in a conversation**: when the current model is an AI Gateway model with tier evidence (declared, tested in effect, or set in the editor), a *⚡ Speed* button appears left of the model button in the composer. It sets Standard / Fast / Ultrafast for **this conversation**, and the menu labels each tier's evidence. The choice applies to this model in this conversation only; other conversations keep the editor default. (DSH's model menu has no extension row for plugins, so the control sits beside it.)
+
 **How support is decided** — per gateway and model, with three kinds of evidence kept apart:
 
 | Evidence | Source | Shown as |
@@ -94,7 +96,7 @@ Only one gateway is active at a time; switching affects every session using the 
 ## Development
 
 ```sh
-npm test                                    # 103 tests against local fake gateways
+npm test                                    # 105 tests against local fake gateways
 node scripts/probe.mjs --base <url>         # probe from a shell
 GATEWAY_KEY=sk-... node scripts/probe.mjs --base <url>
 ```

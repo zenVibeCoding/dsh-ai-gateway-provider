@@ -26,7 +26,8 @@ import { probe, identify, readQuota, gatewayRoot } from './lib/probe.js';
 import { ChannelService, resolveChannels } from './lib/channels.js';
 import { SiteFactsCache } from './lib/site-cache.js';
 import { ModelTester } from './lib/model-test.js';
-import { SERVICE_TIERS } from './lib/service-tiers.js';
+import { SERVICE_TIERS, ACCELERATED_TIERS } from './lib/service-tiers.js';
+import { SessionTiers } from './lib/session-tiers.js';
 
 export const name = 'ai-gateway';
 export const inject = ['llm'];
@@ -201,7 +202,11 @@ export function apply(ctx, config) {
     };
   };
 
+  // Per-conversation speed choices from the composer; the model editor default is the fallback.
+  const sessionTiers = new SessionTiers({ logger: ctx.logger });
+
   const adapter = new GatewayAdapter({
+    sessionTier: (sessionId, channelId, modelId) => sessionTiers.get(sessionId, channelId, modelId),
     connection: () => connFor(requireActive()),
     capture,
     reportError,
@@ -457,6 +462,7 @@ export function apply(ctx, config) {
       channelsMemo = undefined; catalogs.invalidate(); quotas.clear(); ensureRegistration();
       const ids = new Set(channels().list.map((c) => c.id));
       for (const id of new Set([...tester.results.keys()].map((k) => k.split('\u0000')[0]))) if (!ids.has(id)) tester.forget(id);
+      for (const id of new Set([...sessionTiers.map.keys()].map((k) => k.split('\u0000')[1]))) if (!ids.has(id)) sessionTiers.forgetChannel(id);
     },
   });
 
@@ -489,6 +495,42 @@ export function apply(ctx, config) {
         effectiveContextWindow: e.contextWindow ?? conn.defaultContextWindow,
         effectiveMaxTokens: e.maxTokens ?? conn.defaultMaxTokens,
       })),
+    };
+  };
+
+  /**
+   * Speed choices the composer may offer for one model in one conversation.
+   * Offered only for OpenAI-protocol chat models on the active gateway, and only tiers
+   * that have evidence: declared by the gateway, or verified by a test, or already
+   * chosen in the model editor. Nothing is offered for an unknown model.
+   */
+  const sessionTierView = async ({ sessionId, modelId, provider } = {}) => {
+    if (typeof sessionId !== 'string' || !sessionId || typeof modelId !== 'string' || !modelId) throw Object.assign(new Error('sessionId and modelId are required'), { status: 400 });
+    // Only this plugin's own route is ours to annotate.
+    if (provider !== undefined && provider !== (current().providerId || 'ai-gateway')) return { available: false, reason: 'not an AI Gateway model' };
+    const active = channels().active;
+    if (!active) return { available: false, reason: 'no gateway' };
+    const catalog = await catalogFor(active, {}, connFor(active));
+    const entry = catalog.entries.find((e) => e.id === modelId && e.kind === 'chat');
+    if (!entry || !entry.speedTiers?.compatible) return { available: false, reason: 'not an OpenAI-protocol chat model on this gateway' };
+    const st = entry.speedTiers;
+    const last = tester.last(active.id, modelId);
+    const verified = last?.tierOutcome === 'verified' ? last.requestedServiceTier : undefined;
+    const offered = ACCELERATED_TIERS.filter((t) => (st.source === 'gateway' && st.tiers.includes(t)) || t === verified || t === entry.serviceTier);
+    if (!offered.length) return { available: false, reason: 'no speed tier declared, verified or configured for this model' };
+    const choice = sessionTiers.get(sessionId, active.id, modelId);
+    const fallback = entry.serviceTier ?? null;
+    return {
+      available: true,
+      channelId: active.id,
+      modelId,
+      modelDefault: fallback,
+      choice: choice ?? null,
+      effective: choice ?? fallback,
+      options: [
+        { tier: 'default', evidence: 'standard' },
+        ...offered.map((t) => ({ tier: t, evidence: t === verified ? 'verified' : st.source === 'gateway' && st.tiers.includes(t) ? 'declared' : 'manual' })),
+      ],
     };
   };
 
@@ -566,6 +608,18 @@ export function apply(ctx, config) {
       return modelsOf(channelById(body.channelId), { force: body.force === true });
     },
     'POST model/test': async (body) => tester.run(body),
+    // Composer speed control: what the active gateway offers for one model, and this
+    // conversation's choice. Only the active gateway serves conversations.
+    'POST session/tier': async (body) => sessionTierView(body),
+    'POST session/tier/set': async (body) => {
+      const { sessionId, modelId, tier } = body ?? {};
+      const active = requireActive();
+      const view = await sessionTierView({ sessionId, modelId });
+      if (!view.available) throw Object.assign(new Error(view.reason ?? 'this model has no speed tiers'), { status: 400 });
+      if (tier !== null && !view.options.some((o) => o.tier === tier)) throw Object.assign(new Error('that tier is not offered for this model'), { status: 400 });
+      sessionTiers.set(sessionId, active.id, modelId, tier);
+      return sessionTierView({ sessionId, modelId });
+    },
   };
 
   ctx.inject(['webServer'], (wctx) => {

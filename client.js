@@ -32,7 +32,7 @@ window.__ModuleLoader__.load({
       speedCaution: '网关声明不等于实测，加速档位通常额外计费。保存后点「测试」：只有响应里回显了该档位，才算已生效；耗时变短不算证据。',
       speedProtocol: 'Anthropic / Gemini 协议不使用此参数，请保留“跟随网关”。', speedMapping: '上游映射已变更，当前档位声明暂不可用。保存映射后重新打开以读取目标模型的能力。',
       speedInvalid: '此档位未被网关声明支持，或不适用于当前协议。请选择跟随网关，或检查配置。', speedManualRequired: '请先确认手动尝试未声明档位的风险。', speedBadgeUnknown: '手动指定 · 未经网关声明',
-      speedDeclaredShort: '网关声明', tier_verified: '已生效（响应回显该档位）', tier_downgraded: '未生效（响应为其他档位，可能被网关过滤或降级）', tier_unconfirmed: '无法确认（响应未回显档位）', tierReturned: '响应档位',
+      speedDeclaredShort: '网关声明', speedComposerTip: '速度档位', speedComposerShort: '速度', speedComposerHead: '本会话的速度档位', speedVerifiedShort: '已实测', speedManualShort: '手动', speedComposerScope: '只对当前会话的这个模型生效。加速档位通常额外计费。', speedComposerDefault: (x) => `模型默认：${x}。这里的选择只对当前会话生效。`, tier_verified: '已生效（响应回显该档位）', tier_downgraded: '未生效（响应为其他档位，可能被网关过滤或降级）', tier_unconfirmed: '无法确认（响应未回显档位）', tierReturned: '响应档位',
       hideModelTip: '隐藏：不出现在对话的模型选择器里', showModelTip: '取消隐藏',
       hideGroupTip: (name, n) => `隐藏 ${name} 组的 ${n} 个模型`, showGroupTip: (name, n) => `取消隐藏 ${name} 组的 ${n} 个模型`,
       groupHidden: (n) => `已隐藏 ${n}`,
@@ -142,7 +142,7 @@ window.__ModuleLoader__.load({
       speedCaution: 'A declaration is not verification, and accelerated tiers usually cost more. Save, then Test: only a response stamped with the tier proves it was used; lower latency is not evidence.',
       speedProtocol: 'Anthropic / Gemini protocols do not use this parameter. Keep Follow gateway selected.', speedMapping: 'Upstream mapping changed. Save it and reopen the editor to read the target model’s tier declaration.',
       speedInvalid: 'This tier is not declared supported, or the selected protocol cannot use it. Follow the gateway or review the configuration.', speedManualRequired: 'Acknowledge the risks before manually trying an undeclared tier.', speedBadgeUnknown: 'Manual · unverified',
-      speedDeclaredShort: 'declared', tier_verified: 'in effect (response stamped with this tier)', tier_downgraded: 'not in effect (response used another tier; filtered or downgraded)', tier_unconfirmed: 'unconfirmed (response named no tier)', tierReturned: 'response tier',
+      speedDeclaredShort: 'declared', speedComposerTip: 'Speed tier', speedComposerShort: 'Speed', speedComposerHead: 'Speed tier for this conversation', speedVerifiedShort: 'tested', speedManualShort: 'manual', speedComposerScope: 'Applies to this model in this conversation only. Accelerated tiers usually cost more.', speedComposerDefault: (x) => `Model default: ${x}. This choice applies to this conversation only.`, tier_verified: 'in effect (response stamped with this tier)', tier_downgraded: 'not in effect (response used another tier; filtered or downgraded)', tier_unconfirmed: 'unconfirmed (response named no tier)', tierReturned: 'response tier',
       hideModelTip: 'Hide: keep it out of the chat model picker', showModelTip: 'Unhide',
       hideGroupTip: (name, n) => `Hide ${n} ${name} models`, showGroupTip: (name, n) => `Unhide ${n} ${name} models`,
       groupHidden: (n) => `${n} hidden`,
@@ -1031,7 +1031,6 @@ window.__ModuleLoader__.load({
         try { result = await api('channel/test', { id: ch.id }); }
         catch (e) { result = { ok: false, error: e.message }; }
         setCheck({ running: false, result });
-        void store.load();
       };
       const r = check.result;
       const testTitle = r ? (r.ok
@@ -1546,6 +1545,78 @@ window.__ModuleLoader__.load({
         editor && h(ChannelEditor, { ...editor, onClose: () => setEditor(undefined), onSaved: () => notify('saved') }),
         modelEditor && h(ModelEditor, { ...modelEditor, onClose: () => setModelEditor(undefined), onSaved: (reset) => notify(reset ? 'modelReset' : 'modelSaved') }));
     }
+
+    /**
+     * Composer speed control, beside the model button. Shown only when this conversation
+     * runs an AI Gateway model that has speed tiers with evidence (declared, verified or
+     * configured). The choice belongs to this conversation and this exact model.
+     */
+    function SpeedTierControl({ sessionId, useProjection }) {
+      const t = useT();
+      const selection = useProjection ? useProjection('modelSelection', (v) => v?.next ?? null) : null;
+      const provider = selection?.provider; const modelId = selection?.model;
+      const [view, setView] = useState(); const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+      const ref = useRef(null);
+      useEffect(() => {
+        setView(undefined); setError('');
+        if (!provider || !modelId || !sessionId) return undefined;
+        const controller = new AbortController();
+        api('session/tier', { sessionId: String(sessionId), modelId, provider }, controller.signal).then(setView).catch(() => setView({ available: false }));
+        return () => controller.abort();
+      }, [provider, modelId, sessionId]);
+      useEffect(() => {
+        if (!open) return undefined;
+        const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+        const esc = (e) => { if (e.key === 'Escape') setOpen(false); };
+        document.addEventListener('pointerdown', close, true); document.addEventListener('keydown', esc, true);
+        return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('keydown', esc, true); };
+      }, [open]);
+      if (!view?.available) return null;
+      const effective = view.effective ?? 'default';
+      const pick = async (tier) => {
+        setBusy(true); setError('');
+        try { setView(await api('session/tier/set', { sessionId: String(sessionId), modelId, tier })); setOpen(false); }
+        catch (e) { setError(e.message); }
+        finally { setBusy(false); }
+      };
+      const evidenceLabel = { standard: '', declared: t('speedDeclaredShort'), verified: t('speedVerifiedShort'), manual: t('speedManualShort') };
+      const fast = effective !== 'default';
+      return h('div', { className: 'nas-composer-speed', ref },
+        h('style', null, COMPOSER_CSS),
+        h('button', { type: 'button', className: `nas-cs-trigger ${fast ? 'on' : ''}`, 'aria-haspopup': 'menu', 'aria-expanded': open, disabled: busy,
+          'data-tip': `${t('speedComposerTip')}: ${tierName(effective)}`, 'aria-label': `${t('speedComposerTip')}: ${tierName(effective)}`, onClick: () => setOpen((v) => !v) },
+          h(Icon, { name: 'bolt', size: 13 }), h('span', { className: 'nas-cs-label' }, fast ? tierName(effective) : t('speedComposerShort'))),
+        open && h('div', { className: 'nas-cs-menu', role: 'menu', 'aria-label': t('speedComposerTip') },
+          h('div', { className: 'nas-cs-head' }, t('speedComposerHead')),
+          view.options.map((o) => {
+            const selected = (view.choice ?? view.modelDefault ?? 'default') === o.tier;
+            return h('button', { key: o.tier, type: 'button', role: 'menuitemradio', 'aria-checked': selected, className: 'nas-cs-item', disabled: busy,
+              onClick: () => pick(o.tier === (view.modelDefault ?? 'default') ? null : o.tier) },
+              h('span', { className: 'nas-cs-name' }, tierName(o.tier)),
+              evidenceLabel[o.evidence] && h('span', { className: `nas-cs-ev ${o.evidence}` }, evidenceLabel[o.evidence]),
+              h('span', { className: 'nas-cs-check', 'aria-hidden': true }, selected ? h(Icon, { name: 'check', size: 12 }) : null));
+          }),
+          h('div', { className: 'nas-cs-foot' }, view.modelDefault ? tf('speedComposerDefault', tierName(view.modelDefault)) : t('speedComposerScope')),
+          error && h('div', { className: 'nas-cs-err', role: 'alert' }, error)));
+    }
+    const COMPOSER_CSS = `
+      .nas-composer-speed{position:relative;display:inline-flex}
+      .nas-cs-trigger{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:0;border-radius:var(--dsw-radius-sm,6px);background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:13px;cursor:pointer;white-space:nowrap}
+      .nas-cs-trigger:hover{background:var(--dsw-alias-bg-layer-2,rgba(0,0,0,.05))}
+      .nas-cs-trigger.on{color:var(--dsw-alias-state-warn-primary,#c27803)}
+      .nas-cs-label{display:var(--dsh-composer-model-text-display,inline)}
+      .nas-cs-menu{position:absolute;right:0;bottom:calc(100% + 6px);min-width:220px;padding:6px;border-radius:12px;border:.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12));background:var(--dsw-alias-bg-overlay,#fff);box-shadow:0 10px 30px rgba(0,0,0,.14);z-index:30}
+      .nas-cs-head{padding:6px 8px 4px;font-size:11px;color:var(--dsw-alias-label-tertiary,#8b93a1)}
+      .nas-cs-item{display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 8px;border:0;border-radius:8px;background:transparent;color:var(--dsw-alias-label-primary);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+      .nas-cs-item:hover,.nas-cs-item:focus-visible{background:var(--dsw-alias-bg-layer-2,rgba(0,0,0,.05));outline:0}
+      .nas-cs-name{flex:1}
+      .nas-cs-ev{font-size:10px;padding:0 5px;border-radius:4px;color:var(--dsw-alias-label-tertiary,#8b93a1);border:1px solid var(--dsw-alias-border-l3,rgba(0,0,0,.12))}
+      .nas-cs-ev.verified{color:var(--dsw-alias-state-success-primary,#16a34a);border-color:currentColor}
+      .nas-cs-ev.manual{color:var(--dsw-alias-state-warn-primary,#c27803);border-style:dashed;border-color:currentColor}
+      .nas-cs-check{width:14px;display:inline-flex;justify-content:center;color:var(--dsw-alias-label-primary)}
+      .nas-cs-foot{padding:6px 8px 2px;font-size:11px;line-height:1.5;color:var(--dsw-alias-label-tertiary,#8b93a1);border-top:.5px solid var(--dsw-alias-border-l3,rgba(0,0,0,.1));margin-top:4px}
+      .nas-cs-err{padding:4px 8px;font-size:11px;color:var(--dsw-alias-state-error-primary,#dc2626)}
+    `;
     return {
       inject: ['slots', 'locale'],
       apply(ctx) {
@@ -1560,6 +1631,10 @@ window.__ModuleLoader__.load({
           register(); const un = ctx.locale.subscribe(register);
           return () => { un(); dispose?.(); };
         });
+        // Composer: a speed button beside the model selector (the selector itself has no
+        // extension row). Hidden unless the current model is an AI Gateway model with tiers.
+        void store.load();
+        ctx.slots.inject('conversation.input.right', () => ctx.slots.register({ name: 'conversation.input.right', id: 'ai-gateway-speed', order: 100 }, SpeedTierControl));
       },
     };
   },

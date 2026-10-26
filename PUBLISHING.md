@@ -7,7 +7,7 @@
 | 项目 | 状态 |
 | --- | --- |
 | 版本 | 0.6.0（未发 npm） |
-| 测试 | 103 项通过（`npm test`） |
+| 测试 | 105 项通过（`npm test`） |
 | npm | 0.5.0 已发布；0.5.2 发布中 |
 | GitHub | https://github.com/zenVibeCoding/dsh-ai-gateway-provider |
 | 插件市场 | PR awesome-dsh-plugin#9445，等仓库满 24 小时 + 维护者合并 |
@@ -15,7 +15,7 @@
 
 ### 版本记录
 
-- **0.6.0**：GPT / OpenAI 速度档位（Standard / Fast / Ultrafast），按网关声明、实测回显、手动尝试三种证据区分；CLIProxyAPI 从 `/v1/models?client_version=` 读取档位声明
+- **0.6.0**：GPT / OpenAI 速度档位（Standard / Fast / Ultrafast），按网关声明、实测回显、手动尝试三种证据区分；CLIProxyAPI 从 `/v1/models?client_version=` 读取档位声明；输入框「⚡ 速度」按钮按会话切换档位
 - **0.5.2**：隐藏模型改为原地置灰，不再从列表移走；封面与 `screenshots.json`；README 标题改为「任意 AI 网关」
 - **0.5.1**：隐藏模型（单个 / 整组），隐藏的模型不进对话选择器
 - **0.5.0**：首次公开发布

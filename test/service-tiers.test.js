@@ -111,3 +111,33 @@ test('a model test sends the saved tier and records the verdict', async (t) => {
   assert.equal('service_tier' in sent, false, 'no saved tier: the test sends none');
   assert.equal(plain.tierOutcome, undefined);
 });
+
+test('a conversation choice wins over the model default, only for that conversation', async () => {
+  const { SessionTiers } = await import('../lib/session-tiers.js');
+  const tiers = new SessionTiers();
+  tiers.set('s1', 'gw', 'gpt-6.1-sol', 'ultrafast');
+  const seen = [];
+  const api = { stream: (model, context, options) => { seen.push(options); return 'ok'; }, streamSimple: () => 'ok' };
+  const entries = new Map([['gpt-6.1-sol', { id: 'gpt-6.1-sol', kind: 'chat', serviceTier: 'priority' }]]);
+  const wrapped = withModelPayload(api, new Map([['gpt-6.1-sol', 'gpt-6.1-sol']]), entries, 'openai-response', (sid, mid) => tiers.get(sid, 'gw', mid));
+  wrapped.stream({ id: 'gpt-6.1-sol' }, {}, { sessionId: 's1' });
+  assert.equal((await seen.pop().onPayload({ model: 'gpt-6.1-sol' })).service_tier, 'ultrafast', 'session choice');
+  wrapped.stream({ id: 'gpt-6.1-sol' }, {}, { sessionId: 's2' });
+  assert.equal((await seen.pop().onPayload({ model: 'gpt-6.1-sol' })).service_tier, 'priority', 'other session: model default');
+  wrapped.stream({ id: 'gpt-6.1-sol' }, {}, {});
+  assert.equal((await seen.pop().onPayload({ model: 'gpt-6.1-sol' })).service_tier, 'priority', 'no session (title, compaction): model default');
+  tiers.set('s1', 'gw', 'gpt-6.1-sol', null);
+  wrapped.stream({ id: 'gpt-6.1-sol' }, {}, { sessionId: 's1' });
+  assert.equal((await seen.pop().onPayload({ model: 'gpt-6.1-sol' })).service_tier, 'priority', 'cleared: back to the default');
+  assert.equal(tiers.get('s1', 'other-gateway', 'gpt-6.1-sol'), undefined, 'a choice never follows another gateway');
+  assert.throws(() => tiers.set('s1', 'gw', 'm', 'turbo'), /invalid/);
+});
+
+test('a conversation choice of standard sends default even when the model default is fast', async () => {
+  const seen = [];
+  const api = { stream: (m, c, options) => { seen.push(options); return 'ok'; }, streamSimple: () => 'ok' };
+  const entries = new Map([['m', { id: 'm', kind: 'chat', serviceTier: 'priority' }]]);
+  const wrapped = withModelPayload(api, new Map([['m', 'm']]), entries, 'openai', () => 'default');
+  wrapped.stream({ id: 'm' }, {}, { sessionId: 's' });
+  assert.equal((await seen.pop().onPayload({ model: 'm' })).service_tier, 'default');
+});
