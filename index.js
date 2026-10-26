@@ -26,7 +26,7 @@ import { probe, identify, readQuota, gatewayRoot } from './lib/probe.js';
 import { ChannelService, resolveChannels } from './lib/channels.js';
 import { SiteFactsCache } from './lib/site-cache.js';
 import { ModelTester } from './lib/model-test.js';
-import { SERVICE_TIERS, ACCELERATED_TIERS } from './lib/service-tiers.js';
+import { SERVICE_TIERS, composerSpeedTiers } from './lib/service-tiers.js';
 import { SessionTiers } from './lib/session-tiers.js';
 
 export const name = 'ai-gateway';
@@ -54,7 +54,11 @@ const ModelOverride = z.object({
   thinkingLevelMap: z.dict(z.union([z.string(), z.const(null)])).default(undefined)
     .description('Per-level wire value: a string is sent upstream, null hides the level. Omitted levels fall back to the detected value.'),
   protocol: z.union(ENDPOINT_TYPES).description('Force the wire protocol for this model.'),
-  serviceTier: z.union(SERVICE_TIERS).default(undefined).description('OpenAI Chat/Responses service tier: default, priority (Fast), ultrafast. Unset sends nothing. Gateway declarations are not verified support; accelerated tiers may cost more.'),
+  speedEnabled: z.boolean().default(undefined).description('Enable speed controls for this model; false suppresses service_tier and session overrides.'),
+  allowedServiceTiers: z.array(z.string()).default(undefined).description('Speed tiers the user permits for this model.'),
+  defaultReasoningEffort: z.string().default(undefined).description('Default reasoning level, selected from the enabled levels.'),
+  serviceTierMap: z.dict(z.string()).default(undefined).description('Local speed tier id to wire service_tier string; explicit mappings override presets.'),
+  serviceTier: z.string().default(undefined).description('Local OpenAI Chat/Responses speed tier id, including configured custom ids. Unset sends nothing. Gateway declarations are not verified support; accelerated tiers may cost more.'),
   custom: z.boolean().description('Add this model even if the gateway does not list it.'),
 });
 
@@ -487,7 +491,7 @@ export function apply(ctx, config) {
       pricingError: value.pricingError,
       entries: value.entries.map(({ thinkingLevelMap, ...e }) => ({
         ...e,
-        automaticThinkingLevelMap: thinkingLevelMap ?? null,
+        automaticThinkingLevelMap: e.automaticThinkingLevelMap ?? null,
         override: structuredClone(Object.hasOwn(captured.models ?? {}, e.id) ? captured.models[e.id] : {}),
         automaticContextWindow: e.automaticContextWindow ?? conn.defaultContextWindow,
         automaticMaxTokens: e.automaticMaxTokens ?? conn.defaultMaxTokens,
@@ -513,13 +517,12 @@ export function apply(ctx, config) {
     const catalog = await catalogFor(active, {}, connFor(active));
     const entry = catalog.entries.find((e) => e.id === modelId && e.kind === 'chat');
     if (!entry || !entry.speedTiers?.compatible) return { available: false, reason: 'not an OpenAI-protocol chat model on this gateway' };
-    const st = entry.speedTiers;
     const last = tester.last(active.id, modelId);
-    const verified = last?.tierOutcome === 'verified' ? last.requestedServiceTier : undefined;
-    const offered = ACCELERATED_TIERS.filter((t) => (st.source === 'gateway' && st.tiers.includes(t)) || t === verified || t === entry.serviceTier);
-    if (!offered.length) return { available: false, reason: 'no speed tier declared, verified or configured for this model' };
-    const choice = sessionTiers.get(sessionId, active.id, modelId);
-    const fallback = entry.serviceTier ?? null;
+    const offered = composerSpeedTiers(entry, last, true);
+    if (!offered.some((option) => option.evidence !== 'standard')) return { available: false, reason: 'no speed tier declared, verified or configured for this model' };
+    const savedChoice = sessionTiers.get(sessionId, active.id, modelId);
+    const choice = savedChoice && entry.allowedServiceTiers?.includes(savedChoice) ? savedChoice : undefined;
+    const fallback = entry.allowedServiceTiers?.includes(entry.serviceTier) ? entry.serviceTier : null;
     return {
       available: true,
       channelId: active.id,
@@ -527,10 +530,7 @@ export function apply(ctx, config) {
       modelDefault: fallback,
       choice: choice ?? null,
       effective: choice ?? fallback,
-      options: [
-        { tier: 'default', evidence: 'standard' },
-        ...offered.map((t) => ({ tier: t, evidence: t === verified ? 'verified' : st.source === 'gateway' && st.tiers.includes(t) ? 'declared' : 'manual' })),
-      ],
+      options: offered,
     };
   };
 
@@ -612,9 +612,10 @@ export function apply(ctx, config) {
     // conversation's choice. Only the active gateway serves conversations.
     'POST session/tier': async (body) => sessionTierView(body),
     'POST session/tier/set': async (body) => {
-      const { sessionId, modelId, tier } = body ?? {};
+      const { sessionId, modelId, tier, provider, channelId } = body ?? {};
       const active = requireActive();
-      const view = await sessionTierView({ sessionId, modelId });
+      const view = await sessionTierView({ sessionId, modelId, provider });
+      if (channels().active?.id !== active.id || view.channelId !== active.id || (channelId && channelId !== active.id)) throw Object.assign(new Error('gateway changed; reopen the speed menu'), { status: 409 });
       if (!view.available) throw Object.assign(new Error(view.reason ?? 'this model has no speed tiers'), { status: 400 });
       if (tier !== null && !view.options.some((o) => o.tier === tier)) throw Object.assign(new Error('that tier is not offered for this model'), { status: 400 });
       sessionTiers.set(sessionId, active.id, modelId, tier);

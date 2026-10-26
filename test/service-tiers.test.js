@@ -19,7 +19,8 @@ test('declarations: plain ids, CLIProxyAPI objects and additional_speed_tiers al
   assert.deepEqual(advertisedServiceTiers({ supported_service_tiers: ['default', 'priority', 'ultrafast'] }), { source: 'gateway', tiers: ['default', 'priority', 'ultrafast'] });
   // CLIProxyAPI's Codex catalog, verbatim shape.
   assert.deepEqual(advertisedServiceTiers({ service_tiers: [{ id: 'priority', name: 'Fast', description: '2x speed' }], additional_speed_tiers: ['fast'] }), { source: 'gateway', tiers: ['priority'] });
-  assert.deepEqual(advertisedServiceTiers({ additional_speed_tiers: ['fast'] }), { source: 'gateway', tiers: ['priority'] }, '`fast` is the documented alias of priority');
+  assert.deepEqual(advertisedServiceTiers({ additional_speed_tiers: ['fast'] }), { source: 'unknown', tiers: [] }, 'supplemental template fields are not a capability declaration');
+  assert.deepEqual(advertisedServiceTiers({ service_tiers: [], additional_speed_tiers: ['fast'] }), { source: 'gateway', tiers: [] }, 'an explicit empty tier list must not be inflated by supplemental template metadata');
 });
 
 test('an empty list is an explicit "none"; absence or garbage stays unknown', () => {
@@ -130,7 +131,9 @@ test('a conversation choice wins over the model default, only for that conversat
   wrapped.stream({ id: 'gpt-6.1-sol' }, {}, { sessionId: 's1' });
   assert.equal((await seen.pop().onPayload({ model: 'gpt-6.1-sol' })).service_tier, 'priority', 'cleared: back to the default');
   assert.equal(tiers.get('s1', 'other-gateway', 'gpt-6.1-sol'), undefined, 'a choice never follows another gateway');
-  assert.throws(() => tiers.set('s1', 'gw', 'm', 'turbo'), /invalid/);
+  tiers.set('s1', 'gw', 'm', 'turbo');
+  assert.equal(tiers.get('s1', 'gw', 'm'), 'turbo');
+  assert.throws(() => tiers.set('s1', 'gw', 'm', 'Bad Name'), /invalid/);
 });
 
 test('a conversation choice of standard sends default even when the model default is fast', async () => {
@@ -140,4 +143,21 @@ test('a conversation choice of standard sends default even when the model defaul
   const wrapped = withModelPayload(api, new Map([['m', 'm']]), entries, 'openai', () => 'default');
   wrapped.stream({ id: 'm' }, {}, { sessionId: 's' });
   assert.equal((await seen.pop().onPayload({ model: 'm' })).service_tier, 'default');
+});
+
+
+test('composer: GPT scope plus per-route evidence, never Claude or manual preference alone', async () => {
+  const { composerSpeedTiers } = await import('../lib/service-tiers.js');
+  const entry = (id, tiers = ['priority']) => ({ id, upstreamModel: id, kind: 'chat', speedTiers: { compatible: true, source: 'gateway', tiers } });
+  assert.deepEqual(composerSpeedTiers(entry('claude-opus-5-5')), [], 'Claude through OpenAI protocol is still not GPT');
+  assert.deepEqual(composerSpeedTiers(entry('gemini-3-pro')), []);
+  assert.deepEqual(composerSpeedTiers(entry('gpt-6-sol')), [{ tier: 'priority', wireValue: 'priority', evidence: 'declared' }]);
+  assert.equal(composerSpeedTiers(entry('devin/gpt-6-sol')).length, 1);
+  const unknown = { ...entry('gpt-6-sol', []), serviceTier: 'priority' };
+  assert.deepEqual(composerSpeedTiers(unknown), [], 'a saved preference does not establish support');
+  const last = { ok: true, upstreamModel: 'gpt-6-sol', tierOutcome: 'verified', requestedServiceTier: 'priority', returnedServiceTier: 'priority' };
+  assert.deepEqual(composerSpeedTiers(unknown, last), [{ tier: 'priority', wireValue: 'priority', evidence: 'verified' }]);
+  assert.deepEqual(composerSpeedTiers(unknown, { ...last, upstreamModel: 'gpt-other' }), [], 'mapped target must match');
+  assert.deepEqual(composerSpeedTiers(unknown, { ...last, ok: false }), []);
+  assert.deepEqual(composerSpeedTiers(unknown, { ...last, returnedServiceTier: 'default' }), []);
 });

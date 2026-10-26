@@ -13,8 +13,93 @@ import os from 'node:os';
 import path from 'node:path';
 
 process.env.DSH_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'newapi-provider-levels-'));
-const { LevelCatalog, levelsFromMap, mapFromLevels, resolveReasoningLevels, LEVELS } = await import('../lib/levels.js');
+const { LevelCatalog, levelsFromMap, mapFromLevels, resolveReasoningLevels, gatewayReasoning, LEVELS } = await import('../lib/levels.js');
 const { Catalog } = await import('../lib/catalog.js');
+
+test('gateway reasoning is unknown without explicit valid per-model metadata', () => {
+  for (const model of [undefined, null, [], 'gpt-6', {}, { id: 'gpt-6' },
+    { supports_reasoning_effort_updates: true }, { default_reasoning_level: 'high' },
+    { supported_reasoning_levels: 'low,high' },
+    { supported_reasoning_levels: [null] }, { supported_reasoning_levels: [{}] },
+    { supported_reasoning_levels: [{ effort: 1 }] },
+    { supported_reasoning_levels: ['low', { effort: 'high' }] },
+    { supported_reasoning_levels: [{ effort: 'low' }, 'high'] },
+    { supported_reasoning_levels: ['low', 'HIGH'] },
+    { supported_reasoning_levels: ['low', 'bad level'] },
+    { supported_reasoning_levels: ['__proto__'] },
+    { supported_reasoning_levels: ['a'.repeat(25)] },
+    { supported_reasoning_levels: Array(33).fill('low') },
+  ]) assert.equal(gatewayReasoning(model), undefined, JSON.stringify(model));
+});
+
+test('gateway empty list or false explicitly disables effort updates', () => {
+  const expected = {
+    levels: [], map: Object.fromEntries(LEVELS.map((level) => [level, null])),
+    source: 'gateway', supported: false, defaultEffort: undefined,
+  };
+  for (const model of [
+    { supported_reasoning_levels: [] },
+    { supports_reasoning_effort_updates: false },
+    { supports_reasoning_effort_updates: false, supported_reasoning_levels: ['high'], default_reasoning_level: 'high' },
+    { supports_reasoning_effort_updates: false, supported_reasoning_levels: 'malformed' },
+  ]) assert.deepEqual(gatewayReasoning(model), expected);
+});
+
+test('gateway levels normalise none, preserve wire values and hide undeclared standards', () => {
+  const model = { id: 'gemini-3-pro', supported_reasoning_levels: ['ultra', 'high', 'none', 'low', 'high'], default_reasoning_level: 'none' };
+  const snapshot = structuredClone(model);
+  const parsed = gatewayReasoning(model);
+  assert.deepEqual(parsed, {
+    levels: ['off', 'low', 'high', 'ultra'],
+    map: { off: 'none', minimal: null, low: 'low', medium: null, high: 'high', xhigh: null, max: null, ultra: 'ultra' },
+    source: 'gateway', supported: true, defaultEffort: 'off',
+  });
+  assert.deepEqual(levelsFromMap(parsed.map), parsed.levels);
+  assert.deepEqual(model, snapshot);
+});
+
+test('gateway effort objects, safe custom ids and declared defaults are accepted', () => {
+  const parsed = gatewayReasoning({
+    supported_reasoning_levels: [{ effort: 'z_custom-1' }, { effort: 'low' }, { effort: 'a'.repeat(24) }],
+    default_reasoning_level: 'z_custom-1',
+  });
+  assert.deepEqual(parsed.levels, ['low', 'a'.repeat(24), 'z_custom-1']);
+  assert.equal(parsed.defaultEffort, 'z_custom-1');
+  assert.equal(parsed.map.off, null);
+  for (const default_reasoning_level of ['max', '', 1, null, {}, 'LOW']) {
+    assert.equal(gatewayReasoning({ supported_reasoning_levels: ['low'], default_reasoning_level }).defaultEffort, undefined);
+  }
+  assert.equal(gatewayReasoning({ supported_reasoning_levels: Array(32).fill('low') }).supported, true);
+  const boundary = gatewayReasoning({ supported_reasoning_levels: Array.from({ length: 32 }, (_, n) => `custom-${n}`) });
+  assert.equal(boundary.levels.length, 32);
+});
+
+test('resolver prioritises user overrides, then parsed gateway metadata, then old fallbacks', async () => {
+  const catalog = familyOnly();
+  catalog.index = new Map([['gpt-6', { thinkingLevelMap: { high: 'CATALOG' } }]]);
+  const gateway = gatewayReasoning({ supported_reasoning_levels: ['none', 'high'], default_reasoning_level: 'high' });
+  assert.deepEqual(await resolveReasoningLevels({ id: 'gpt-6', catalog, gateway }), gateway);
+  // Gateway and explicit maps need no catalog lookup at all.
+  assert.deepEqual(await resolveReasoningLevels({ id: 'private', gateway }), gateway);
+  const disabled = gatewayReasoning({ supports_reasoning_effort_updates: false });
+  assert.deepEqual(await resolveReasoningLevels({ id: 'gpt-6', catalog, gateway: disabled }), disabled);
+  const override = await resolveReasoningLevels({ id: 'gpt-6', catalog, gateway, override: ['off', 'low'] });
+  assert.deepEqual(override.levels, ['off', 'low']);
+  assert.equal(override.source, 'override');
+  assert.equal(override.map.off, 'none');
+  assert.equal(override.map.low, 'low');
+  const mapped = await resolveReasoningLevels({ id: 'gpt-6', gateway: disabled, override: ['high'], overrideMap: { low: 'CUSTOM' } });
+  assert.deepEqual(mapped.levels, ['low']);
+  assert.equal(mapped.map.low, 'CUSTOM');
+  assert.equal(mapped.source, 'override');
+  assert.deepEqual(await resolveReasoningLevels({ id: 'gpt-6', catalog, gateway, overrideMap: { low: null } }), gateway);
+  const unknown = await resolveReasoningLevels({ id: 'private', catalog });
+  assert.equal(unknown.source, 'default');
+  assert.equal(Object.hasOwn(unknown, 'supported'), true);
+  assert.equal(unknown.supported, undefined);
+  assert.equal((await resolveReasoningLevels({ id: 'gpt-6', catalog })).source, 'catalog');
+  assert.equal((await resolveReasoningLevels({ id: 'gpt-5', catalog })).source, 'family');
+});
 
 /** No pi-ai catalogs: exercise the family defaults only. */
 const familyOnly = () => new LevelCatalog({ providers: [] });

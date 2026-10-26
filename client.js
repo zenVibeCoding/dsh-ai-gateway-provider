@@ -24,8 +24,11 @@ window.__ModuleLoader__.load({
       credentialSet: '凭据已设置', credentialMissing: '未设置凭据', failed: '连接异常', loading: '正在加载…', retry: '重试',
       sidebarBalanceHint: '点击刷新额度',
       loadFailed: '无法读取渠道数据', loadFailedHint: '如果刚重启过 DSH，请确认插件已加载后再试。',
+      speedCustomOption: '自定义档位…', speedCustomPlaceholder: '例如 turbo', speedCustomName: '自定义速度档位名', speedCustomInvalid: '速度档位名应为小写字母开头的字母、数字、下划线或短横线（最多32字符），参数值需非空且不含控制字符（最多128字符）。', speedCustomManualHint: '自定义或修改后的参数按原值发送；手动配置不代表网关已支持，可能报错、被忽略或额外计费。', speedConfiguredShort: '手动配置',
+      reasoningRowsHint: '每行一个允许在对话中选择的等级；可添加、删除或修改 API 参数值。', reasoningOffHint: '已关闭推理等级选择；下面保留自动识别的等级供参考。', speedRowsTitle: '速度档位', speedRowsHint: '每行一个允许在对话中选择的速度；可添加或删除，具体速度在对话里切换。', speedRowLabel: '速度档位', speedWireHint: '发送给网关的 service_tier 参数值，可按网关要求编辑。', addSpeedRow: '添加速度档位',
+      disabled: '已关闭', reasoningSwitch: '启用推理等级选择', detectedReasoning: '自动识别的推理等级', allowedReasoning: '允许在对话中选择的推理等级', reasoningDefault: '默认推理等级', reasoningAdvanced: '高级：自定义推理等级与参数映射', speedSwitch: '启用速度档位选择', speedSwitchHint: '关闭后隐藏对话速度按钮，不发送 service_tier；已保存的会话选择也停用。', allowedSpeed: '允许的速度档位', speedUnknownShort: '未知（没有能力资料）', tierDefaultInvalid: '默认档位必须属于已启用的档位，请重新选择。',
       speedSection: '速度档位 · OpenAI', speedLabel: '此网关下该模型的默认速度',
-      speedAuto: '跟随网关（不发送档位参数）', speedDefault: 'Standard（发送 default）', speedFast: 'Fast（发送 priority）', speedUltra: 'Ultrafast（发送 ultrafast）',
+      speedDefault: 'Standard（发送 default）', speedFast: 'Fast（发送 priority）', speedUltra: 'Ultrafast（发送 ultrafast）',
       speedDeclared: '网关声明的档位', speedUnknown: '能力未知：网关没有提供可识别的档位声明。', speedUnavailable: '网关未声明任何加速档位。',
       speedScope: '独立于推理等级。设置仅作用于此网关的这个模型，会影响使用它的所有会话；仅适用 OpenAI Chat / Responses 协议。',
       speedManual: '手动尝试未声明的档位（未验证，可能额外收费或被网关忽略）',
@@ -134,8 +137,11 @@ window.__ModuleLoader__.load({
       credentialSet: 'Credential set', credentialMissing: 'No credential', failed: 'Connection issue', loading: 'Loading…', retry: 'Retry',
       sidebarBalanceHint: 'Click to refresh the quota',
       loadFailed: 'Could not read gateway data', loadFailedHint: 'If DSH was just restarted, make sure the plugin is loaded and try again.',
+      speedCustomOption: 'Custom tier…', speedCustomPlaceholder: 'e.g. turbo', speedCustomName: 'Custom speed tier name', speedCustomInvalid: 'Use a lowercase letter followed by letters, digits, _ or - (max 32). The wire value must be nonempty, without control characters (max 128).', speedCustomManualHint: 'Custom values are sent as configured. Configuration is not proof of support: the gateway may reject, ignore, or bill extra for them.', speedConfiguredShort: 'Configured',
+      reasoningRowsHint: 'One allowed chat level per row. Add, remove, or edit its API value.', reasoningOffHint: 'Reasoning selection is off. Detected levels are retained below for reference.', speedRowsTitle: 'Speed tiers', speedRowsHint: 'One allowed speed per row. Add or remove tiers; choose the speed in the conversation.', speedRowLabel: 'Speed tier', speedWireHint: 'Editable service_tier value sent to this gateway.', addSpeedRow: 'Add speed tier',
+      disabled: 'Off', reasoningSwitch: 'Enable reasoning level selection', detectedReasoning: 'Detected reasoning levels', allowedReasoning: 'Reasoning levels offered in chat', reasoningDefault: 'Default reasoning level', reasoningAdvanced: 'Advanced: custom reasoning levels and wire mappings', speedSwitch: 'Enable speed tier selection', speedSwitchHint: 'Off hides the composer speed button and omits service_tier, including saved conversation choices.', allowedSpeed: 'Allowed speed tiers', speedUnknownShort: 'Unknown (no capability metadata)', tierDefaultInvalid: 'The default must be an enabled level or tier.',
       speedSection: 'Speed tier · OpenAI', speedLabel: 'Default speed for this model on this gateway',
-      speedAuto: 'Follow gateway (omit tier parameter)', speedDefault: 'Standard (send default)', speedFast: 'Fast (send priority)', speedUltra: 'Ultrafast (send ultrafast)',
+      speedDefault: 'Standard (send default)', speedFast: 'Fast (send priority)', speedUltra: 'Ultrafast (send ultrafast)',
       speedDeclared: 'Gateway-declared tiers', speedUnknown: 'Unknown capability: no recognized tier declaration from the gateway.', speedUnavailable: 'The gateway declares no accelerated tiers.',
       speedScope: 'Independent of reasoning effort. Applies to this model on this gateway across all sessions; OpenAI Chat / Responses only.',
       speedManual: 'Manually try undeclared tiers (unverified; may cost more or be ignored)',
@@ -763,15 +769,16 @@ window.__ModuleLoader__.load({
      * Reasoning levels: a switch plus a level→wire-value table.
      * Off = follow what the model declares; on = the table is exactly what ships.
      */
-    function ReasoningLevelsEditor({ enabled, rows, detected, busy, onToggle, onChange }) {
+    function ReasoningLevelsEditor({ enabled, rows, detected, busy, onToggle, onChange, wireValues = {} }) {
       const CUSTOM_CHOICE = '__custom';
       const t = useT();
+      const wireFor = (level) => typeof wireValues[level] === 'string' ? wireValues[level] : defaultWireFor(level);
       const setRow = (index, patch) => onChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
       // A new row starts on the first preset nobody uses yet; when all seven are taken it
       // starts as a custom row instead, which is the only case where a name is typed.
       const add = () => {
         const free = LEVELS.find((level) => !rows.some((row) => row.level === level));
-        onChange([...rows, free ? { level: free, value: defaultWireFor(free) } : { level: '', value: '' }]);
+        onChange([...rows, free ? { level: free, value: wireFor(free) } : { level: '', value: '' }]);
       };
       const used = new Set(rows.map((row) => row.level).filter(Boolean));
       const problems = rows.map((row) => {
@@ -787,10 +794,10 @@ window.__ModuleLoader__.load({
             h('span', null, t('reasoningLevels')),
             h('span', { className: 'nas-help', role: 'img', 'aria-label': t('levelsHelp'), 'data-tip': t('levelsHelp'), 'data-tip-align': 'start' }, '?')),
           h('button', {
-            type: 'button', role: 'switch', 'aria-checked': enabled, 'aria-label': t('reasoningLevelsMode'),
+            type: 'button', role: 'switch', 'aria-checked': enabled, 'aria-label': t('reasoningSwitch'),
             className: `nas-switch ${enabled ? 'on' : ''}`, disabled: busy, onClick: onToggle,
           }, h('i'))),
-        h('div', { className: 'nas-sub' }, enabled ? t('levelsCustomHint') : t('levelsAutoHint')),
+        h('div', { className: 'nas-sub' }, enabled ? t('reasoningRowsHint') : t('reasoningOffHint')),
         !enabled && h('div', { className: 'nas-levels-summary', lang: 'en' }, `${t('levelsOffered')}: ${detected.join(' / ') || '—'}`),
         enabled && h(React.Fragment, null,
           h('div', { className: 'nas-levels-table' },
@@ -802,7 +809,7 @@ window.__ModuleLoader__.load({
                   value: row.level, disabled: busy, lang: 'en', 'aria-label': t('levelColumn'),
                   onChange: (e) => setRow(index, e.target.value === CUSTOM_CHOICE
                     ? { level: '' }                                  // switch this row to a typed name
-                    : { level: e.target.value, value: row.value || defaultWireFor(e.target.value) }),
+                    : { level: e.target.value, value: wireFor(e.target.value) }),
                 },
                 LEVELS.map((level) => h('option', {
                   key: level, value: level, lang: 'en',
@@ -820,7 +827,7 @@ window.__ModuleLoader__.load({
                     'aria-label': t('levelBackToPreset'), 'data-tip': t('levelBackToPreset'), 'data-tip-align': 'end',
                     onClick: () => {
                       const free = LEVELS.find((level) => !used.has(level));
-                      setRow(index, free ? { level: free, value: defaultWireFor(free) } : { level: LEVELS[0], value: defaultWireFor(LEVELS[0]) });
+                      setRow(index, free ? { level: free, value: wireFor(free) } : { level: LEVELS[0], value: wireFor(LEVELS[0]) });
                     } }, h(Icon, { name: 'refresh', size: 12 }))),
               h('input', {
                 value: row.value, disabled: busy, lang: 'en', spellCheck: false, placeholder: t('apiValuePlaceholder'),
@@ -831,9 +838,61 @@ window.__ModuleLoader__.load({
                 'aria-label': t('removeLevel'), 'data-tip': t('removeLevel'), 'data-tip-align': 'end',
                 onClick: () => onChange(rows.filter((_, i) => i !== index)),
               }, h(Icon, { name: 'trash', size: 13 })))),
-          h('button', { type: 'button', className: 'nas-levels-add', disabled: busy || rows.length >= LEVELS.length, onClick: add },
+          h('button', { type: 'button', className: 'nas-levels-add', disabled: busy || rows.length >= 32, onClick: add },
             h(Icon, { name: 'plus', size: 13 }), t('addLevel')),
           !rows.length && h('span', { className: 'nas-field-error' }, t('levelsRequired')))));
+    }
+    const SPEED_ID = /^[a-z][a-z0-9_-]{0,31}$/;
+    const validSpeedId = (id) => typeof id === 'string' && SPEED_ID.test(id) && !['constructor', 'prototype', '__proto__'].includes(id);
+    const validSpeedWire = (value) => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= 128 && !/[\u0000-\u001f\u007f-\u009f]/.test(value);
+    /** Local selector identities and wire service_tier values are deliberately separate. */
+    function SpeedLevelsEditor({ enabled, rows, detected, busy, blocked, onToggle, onChange }) {
+      const t = useT(); const CUSTOM = '__custom';
+      const choices = [...new Set(['default', 'priority', 'ultrafast', ...detected])].filter(validSpeedId);
+      const used = new Set(rows.map((row) => row.level));
+      const setRow = (index, patch) => onChange(rows.map((row, i) => i === index ? { ...row, ...patch } : row));
+      const add = () => {
+        const free = ['default', ...detected].find((id) => validSpeedId(id) && !used.has(id));
+        onChange([...rows, free ? { level: free, value: free } : { level: '', value: '', custom: true }]);
+      };
+      return h('div', { className: 'nas-levels' },
+        h('div', { className: 'nas-levels-head' },
+          h('div', { className: 'nas-levels-title' }, h('span', null, t('speedRowsTitle'))),
+          h('button', { type: 'button', role: 'switch', 'aria-checked': enabled, 'aria-label': t('speedSwitch'),
+            className: `nas-switch ${enabled ? 'on' : ''}`, disabled: busy || (!enabled && blocked), onClick: onToggle }, h('i'))),
+        h('div', { className: 'nas-sub' }, enabled ? t('speedRowsHint') : t('speedSwitchHint')),
+        !enabled && h('div', { className: 'nas-levels-summary', lang: 'en' }, `${t('levelsOffered')}: ${detected.map(tierName).join(' / ') || '—'}`),
+        enabled && h(React.Fragment, null,
+          h('div', { className: 'nas-levels-table' },
+            h('div', { className: 'nas-levels-row head' }, h('span', null, t('levelColumn')), h('span', null, t('apiValueColumn')), h('span', { 'aria-hidden': true })),
+            rows.map((row, index) => {
+              const duplicate = rows.some((other, i) => i !== index && other.level === row.level);
+              const manual = !(row.level === row.value && (row.level === 'default' || detected.includes(row.level)));
+              return h('div', { className: 'nas-levels-row', key: index },
+                !row.custom && choices.includes(row.level)
+                  ? h('select', { value: row.level, disabled: busy || blocked, lang: 'en', 'aria-label': t('speedRowLabel'),
+                    onChange: (e) => setRow(index, e.target.value === CUSTOM ? { level: '', custom: true } : { level: e.target.value, value: e.target.value, custom: false }) },
+                    choices.map((value) => h('option', { key: value, value, disabled: value !== row.level && used.has(value) }, tierName(value))),
+                    h('option', { value: CUSTOM }, t('speedCustomOption')))
+                  : h('div', { className: 'nas-levels-custom' },
+                    h('input', { value: row.level, disabled: busy || blocked, lang: 'en', autoFocus: true, spellCheck: false,
+                      placeholder: t('speedCustomPlaceholder'), 'aria-label': t('speedCustomName'), 'aria-invalid': !validSpeedId(row.level) || duplicate,
+                      onChange: (e) => setRow(index, { level: e.target.value.trim().toLowerCase(), custom: true }) }),
+                    h('button', { type: 'button', className: 'nas-levels-back', disabled: busy || blocked,
+                      'aria-label': t('levelBackToPreset'), 'data-tip': t('levelBackToPreset'), onClick: () => {
+                        const free = choices.find((value) => !used.has(value) || value === row.level);
+                        if (free) setRow(index, { level: free, value: free, custom: false });
+                      } }, h(Icon, { name: 'refresh', size: 12 }))),
+                h('input', { value: row.value, disabled: busy || blocked, lang: 'en', spellCheck: false, placeholder: 'service_tier',
+                  'aria-label': t('apiValueColumn'), 'aria-invalid': !validSpeedWire(row.value),
+                  'data-tip': manual ? t('speedCustomManualHint') : t('speedWireHint'),
+                  onChange: (e) => setRow(index, { value: e.target.value }) }),
+                h('button', { type: 'button', className: 'nas-levels-remove', disabled: busy || rows.length <= 1,
+                  'aria-label': t('removeLevel'), 'data-tip': t('removeLevel'), onClick: () => onChange(rows.filter((_, i) => i !== index)) }, h(Icon, { name: 'trash', size: 13 })));
+            })),
+          h('button', { type: 'button', className: 'nas-levels-add', disabled: busy || blocked || rows.length >= 32,
+            onClick: add }, h(Icon, { name: 'plus', size: 13 }), t('addSpeedRow')),
+          h('div', { className: 'nas-note', style: { marginTop: 8 } }, t('speedCustomManualHint'))));
     }
     /** Level→wire map to editable rows; falls back to the detected set when nothing is pinned. */
     function rowsFromMap(map, detectedLevels, detectedMap) {
@@ -864,7 +923,7 @@ window.__ModuleLoader__.load({
         const value = map ? map[level] : undefined;
         return typeof value === 'string' ? value : null;
       };
-      return LEVELS.every((level) => read(a, level) === read(b, level));
+      return [...new Set([...LEVELS, ...Object.keys(a ?? {}), ...Object.keys(b ?? {})])].every((level) => read(a, level) === read(b, level));
     }
     /** Wire value a level usually needs when the user adds it by hand. */
     function defaultWireFor(level) {
@@ -874,6 +933,7 @@ window.__ModuleLoader__.load({
       const t = useT(); const id = useId(); const a = useAction();
       const initial = model.override || {};
       const automaticInput = model.automaticInput ?? model.input ?? ['text'];
+      const detectedLevels = model.automaticReasoningLevels?.length ? model.automaticReasoningLevels : initial.reasoning === true ? model.reasoningLevels ?? [] : [];
       const [form, setForm] = useState({
         name: initial.name || '', upstreamModel: initial.upstreamModel || '',
         contextWindow: initial.contextWindow == null ? '' : String(initial.contextWindow),
@@ -882,13 +942,15 @@ window.__ModuleLoader__.load({
         inputMode: Array.isArray(initial.input) ? 'custom' : 'auto',
         input: [...(initial.input ?? automaticInput)],
         reasoningMode: initial.reasoning == null ? 'auto' : initial.reasoning ? 'on' : 'off',
-        levelsMode: 'custom',
+        levelsMode: initial.thinkingLevelMap || initial.reasoningLevels ? 'custom' : 'auto',
+        defaultReasoningEffort: initial.defaultReasoningEffort || '',
         // Custom rows: level id plus the wire value it sends ('' means "no value", i.e. off/none).
-        rows: rowsFromMap(initial.thinkingLevelMap, model.automaticReasoningLevels, model.automaticThinkingLevelMap),
+        rows: rowsFromMap(initial.thinkingLevelMap, initial.reasoningLevels ?? detectedLevels, model.automaticThinkingLevelMap),
         hidden: Boolean(initial.hidden),
-        serviceTier: initial.serviceTier || '',
+        serviceTier: initial.serviceTier || ((initial.allowedServiceTiers ?? model.allowedServiceTiers ?? ['default']).includes('default') ? 'default' : (initial.allowedServiceTiers ?? model.allowedServiceTiers)[0] || 'default'),
+        speedEnabled: initial.speedEnabled ?? model.speedEnabled ?? false,
+        speedRows: (initial.allowedServiceTiers ?? model.allowedServiceTiers ?? ['default', ...(model.speedTiers?.tiers ?? [])]).map((level) => ({ level, value: initial.serviceTierMap?.[level] ?? model.serviceTierMap?.[level] ?? level })),
       });
-      const [manualSpeed, setManualSpeed] = useState(Boolean(initial.serviceTier));
       const original = useRef(JSON.stringify(form)); const dirty = original.current !== JSON.stringify(form);
       const [invalid, setInvalid] = useState(''); const [resetting, setResetting] = useState(false);
       const target = form.upstreamModel.trim() || model.id;
@@ -896,16 +958,22 @@ window.__ModuleLoader__.load({
       const speedInfo = model.speedTiers || { source: 'unknown', tiers: [] };
       const speedDeclared = !mappingChanged && speedInfo.source === 'gateway';
       const speedProtocolBlocked = form.protocol ? !['openai', 'openai-response'].includes(form.protocol) : speedInfo.compatible === false;
-      const speedIsDeclared = (tier) => speedDeclared && speedInfo.tiers.includes(tier);
-      const speedAllowed = (tier) => !tier || (!speedProtocolBlocked && !mappingChanged && (tier === 'default' || speedIsDeclared(tier) || manualSpeed));
+      const reasoningOn = form.reasoningMode === 'on' || (form.reasoningMode === 'auto' && Boolean(model.automaticReasoning));
+      const effectiveLevels = form.levelsMode === 'auto' ? detectedLevels : form.rows.filter((r) => r.value.trim()).map((r) => r.level).filter(Boolean);
       const changed = (k) => (e) => { setInvalid(''); setResetting(false); setForm({ ...form, [k]: e.target.value }); };
       const discard = () => { if (!dirty || window.confirm(t('changeDiscard'))) onClose(); };
       const save = () => {
         if (a.pending) return;
-        if (!speedAllowed(form.serviceTier)) return setInvalid(t(!manualSpeed && !mappingChanged && !speedProtocolBlocked ? 'speedManualRequired' : 'speedInvalid'));
+        if (form.speedEnabled) {
+          if (mappingChanged || speedProtocolBlocked) return setInvalid(t('speedInvalid'));
+          if (!form.speedRows.length || form.speedRows.length > 32 || form.speedRows.some((row) => !validSpeedId(row.level) || !validSpeedWire(row.value))) return setInvalid(t('speedCustomInvalid'));
+          if (new Set(form.speedRows.map((row) => row.level)).size !== form.speedRows.length) return setInvalid(t('levelDuplicate'));
+        }
+        if (reasoningOn && !effectiveLevels.length) return setInvalid(t('levelsRequired'));
+        if (reasoningOn && form.defaultReasoningEffort && !effectiveLevels.includes(form.defaultReasoningEffort)) return setInvalid(t('tierDefaultInvalid'));
         for (const k of ['contextWindow', 'maxTokens']) if (form[k] && (!/^\d+$/.test(form[k]) || Number(form[k]) < 1 || !Number.isSafeInteger(Number(form[k])))) return setInvalid(t('positiveInteger'));
         if (form.upstreamModel.trim() && (/\s|[\u0000-\u001f\u007f-\u009f]/u.test(form.upstreamModel.trim()) || form.upstreamModel.trim().length > 500)) return setInvalid(t('invalidMapping'));
-        if (form.levelsMode === 'custom') {
+        if (reasoningOn && form.levelsMode === 'custom') {
           const levels = form.rows.map((row) => row.level).filter(Boolean);
           if (!levels.length) return setInvalid(t('levelsRequired'));
           if (levels.some((level) => !LEVELS.includes(level) && !CUSTOM_LEVEL.test(level))) return setInvalid(t('levelInvalid'));
@@ -924,9 +992,14 @@ window.__ModuleLoader__.load({
         override.reasoningLevels = null;
         const edited = rowsToMap(form.rows);
         const detected = model.automaticThinkingLevelMap;
-        override.thinkingLevelMap = sameLevelMap(edited, detected) ? null : edited;
+        override.thinkingLevelMap = form.levelsMode === 'auto' || sameLevelMap(edited, detected) ? null : edited;
+        override.defaultReasoningEffort = reasoningOn ? form.defaultReasoningEffort || null : null;
         override.hidden = form.hidden ? true : null;
-        override.serviceTier = form.serviceTier || null;
+        override.speedEnabled = form.speedEnabled;
+        const speedRows = form.speedRows.filter((row) => validSpeedId(row.level) && validSpeedWire(row.value));
+        override.allowedServiceTiers = speedRows.length ? speedRows.map((row) => row.level) : ['default'];
+        override.serviceTierMap = Object.fromEntries(speedRows.map((row) => [row.level, row.value.trim()]));
+        override.serviceTier = form.speedEnabled ? (override.allowedServiceTiers.includes(form.serviceTier) ? form.serviceTier : null) : null;
         return a.run(async () => { await store.mutate('model/override', { revision, channelId: channel.id, modelId: model.id, override }); onSaved(false); });
       };
       const reset = () => a.run(async () => { await store.mutate('model/override', { revision, channelId: channel.id, modelId: model.id, override: null, reset: true }); onSaved(true); });
@@ -962,23 +1035,26 @@ window.__ModuleLoader__.load({
               onClick: () => setForm({ ...form, input: selected ? form.input.filter((x) => x !== value) : [...form.input, value] }) }, h(Icon, { name: icon, size: 13 }), t(label), selected && h(Icon, { name: 'check', size: 11 }));
           })),
           h('div', { className: 'nas-note', style: { marginTop: 8, marginBottom: 16 } }, t('inputHint')),
-          h(Field, { label: t('reasoning'), htmlFor: `${id}-reasoning` }, h('select', { id: `${id}-reasoning`, value: form.reasoningMode, onChange: changed('reasoningMode'), disabled: a.pending },
-            h('option', { value: 'auto' }, `${t('followAuto')} · ${t((model.automaticReasoning ?? model.reasoning) ? 'enableReasoning' : 'disableReasoning')}`), h('option', { value: 'on' }, t('enableReasoning')), h('option', { value: 'off' }, t('disableReasoning')))),
-          (form.reasoningMode !== 'off') && h(ReasoningLevelsEditor, {
-            enabled: form.levelsMode === 'custom',
-            rows: form.rows,
-            detected: model.automaticReasoningLevels ?? [],
-            busy: a.pending,
-            onToggle: () => setForm({ ...form, levelsMode: form.levelsMode === 'custom' ? 'auto' : 'custom' }),
-            onChange: (rows) => setForm({ ...form, rows }),
+          h('div', { className: 'nas-note', style: { marginBottom: 10 } },
+            `${t('detectedReasoning')}: ${model.automaticReasoning ? (detectedLevels).map((v) => t('level_' + v)).join(' / ') || t('speedUnknownShort') : model.automaticReasoningKnown ? t('speedUnavailable') : t('speedUnknownShort')}`,
+            model.automaticReasoning && h('span', null, ` · ${t('source')}: ${model.automaticReasoningLevelsSource || 'unknown'}`)),
+          h(ReasoningLevelsEditor, {
+            enabled: reasoningOn, rows: form.rows, detected: detectedLevels, wireValues: model.automaticThinkingLevelMap ?? {}, busy: a.pending,
+            onToggle: () => setForm({ ...form, reasoningMode: reasoningOn ? 'off' : 'on' }),
+            onChange: (rows) => {
+              const levels = rows.filter((row) => row.value.trim()).map((row) => row.level);
+              setForm({ ...form, rows, levelsMode: 'custom', defaultReasoningEffort: levels.includes(form.defaultReasoningEffort) ? form.defaultReasoningEffort : '' });
+            },
           })),
         (form.kind || model.kind) === 'chat' && h('section', { className: 'nas-editor-section' }, sectionTitle('03', 'speedSection'),
           h('div', { className: 'nas-note', style: { marginBottom: 12 } }, t('speedScope')),
           h('div', { className: 'nas-note', style: { marginBottom: 12 }, role: 'status' },
             mappingChanged ? t('speedMapping') : speedDeclared ? `${t('speedDeclared')}: ${speedInfo.tiers.length ? speedInfo.tiers.filter((x) => x !== 'default').map(tierName).join(' / ') : t('speedUnavailable')}` : t('speedUnknown')),
-          !mappingChanged && !speedProtocolBlocked && !['priority', 'ultrafast'].every(speedIsDeclared) && h('div', { style: { marginBottom: 12 } }, h(Check, { checked: manualSpeed, disabled: a.pending, onChange: (value) => { setManualSpeed(value); if (!value && ['priority', 'ultrafast'].includes(form.serviceTier) && !speedIsDeclared(form.serviceTier)) setForm({ ...form, serviceTier: '' }); } }, t('speedManual'))),
-          h(Field, { label: t('speedLabel'), htmlFor: `${id}-service-tier` }, h('select', { id: `${id}-service-tier`, value: form.serviceTier, disabled: a.pending, onChange: changed('serviceTier') },
-            [['', 'speedAuto'], ['default', 'speedDefault'], ['priority', 'speedFast'], ['ultrafast', 'speedUltra']].map(([value, label]) => h('option', { key: value, value, disabled: !speedAllowed(value) }, `${t(label)}${['priority', 'ultrafast'].includes(value) && speedIsDeclared(value) ? ` · ${t('speedDeclaredShort')}` : ''}`)))),
+          h(SpeedLevelsEditor, { enabled: form.speedEnabled, rows: form.speedRows, detected: speedDeclared ? speedInfo.tiers : [], busy: a.pending,
+            blocked: mappingChanged || speedProtocolBlocked || !/(^|\/)gpt-[a-z0-9]/i.test(target),
+            onToggle: () => setForm({ ...form, speedEnabled: !form.speedEnabled }),
+            onChange: (rows) => setForm({ ...form, speedRows: rows }),
+          }),
           speedProtocolBlocked && h('div', { className: 'nas-note' }, t('speedProtocol')),
           h('div', { className: 'nas-note' }, t('speedCaution'))),
         h('details', { className: 'nas-editor-advanced' }, h('summary', null, t('advancedOptions')),
@@ -1430,7 +1506,11 @@ window.__ModuleLoader__.load({
                 m.kind === 'chat' ? h('span', { className: 'nas-cap-numbers' }, tokens(m.effectiveContextWindow), h('span', { className: 'nas-cap-divider' }, ' / '), tokens(m.effectiveMaxTokens)) : h('span', null, t(m.kind)),
                 h('span', { className: 'nas-cap-icons' },
                   (m.input || []).filter((i) => i !== 'text').map((i) => h('span', { key: i, 'data-tip': `${t('inputModalities')}: ${t(i === 'image' ? 'inputImage' : i === 'video' ? 'inputVideo' : i === 'audio' ? 'inputAudio' : i)}`, role: 'img', 'aria-label': i }, h(Icon, { name: i === 'pdf' ? 'document' : i, size: 12 }))),
-                  m.reasoning && h('span', { 'data-tip': t('reasoning'), role: 'img', 'aria-label': t('reasoning') }, h(Icon, { name: 'bolt', size: 12 })))),
+                  m.reasoning && h('span', { 'data-tip': t('reasoning'), role: 'img', 'aria-label': t('reasoning') }, h(Icon, { name: 'bolt', size: 12 }))),
+                m.kind === 'chat' && h('span', { style: { flexBasis: '100%', fontSize: 10, lineHeight: 1.5 } },
+                  `${t('reasoningLevels')}: ${m.reasoning ? (m.reasoningLevels ?? []).join(' / ') || t('speedUnknownShort') : m.automaticReasoningKnown ? t('disabled') : t('speedUnknownShort')}`),
+                m.kind === 'chat' && h('span', { style: { flexBasis: '100%', fontSize: 10, lineHeight: 1.5 } },
+                  `${t('speedComposerShort')}: ${m.speedTiers?.source === 'gateway' ? m.speedTiers.tiers.filter((x) => x !== 'default').map(tierName).join(' / ') || t('speedUnavailable') : t('speedUnknownShort')}${m.speedEnabled === false ? ` · ${t('disabled')}` : ''}`)),
               h(TestCell, { channelId: channel.id, model: m }),
               h('div', { className: 'nas-row-actions' },
                 h(Button, { small: true, className: 'nas-icon-btn', icon: running ? 'refresh' : 'gauge', 'aria-busy': running, tip: canTest ? modelTestTip : t('unsupportedTest'), tipAlign: 'end', disabled: running || !canTest, onClick: () => test(m) }),
@@ -1557,13 +1637,20 @@ window.__ModuleLoader__.load({
       const provider = selection?.provider; const modelId = selection?.model;
       const [view, setView] = useState(); const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
       const ref = useRef(null);
+      const [settingsKey, setSettingsKey] = useState(() => JSON.stringify([store.state?.revision, store.state?.activeChannel]));
+      useEffect(() => { const update = () => setSettingsKey(JSON.stringify([store.state?.revision, store.state?.activeChannel])); store.listeners.add(update); return () => store.listeners.delete(update); }, []);
+      const selectionKey = JSON.stringify([sessionId, provider, modelId, settingsKey]);
+      const selectionRef = useRef(selectionKey); selectionRef.current = selectionKey;
       useEffect(() => {
-        setView(undefined); setError('');
+        setView(undefined); setError(''); setOpen(false); setBusy(false);
         if (!provider || !modelId || !sessionId) return undefined;
         const controller = new AbortController();
-        api('session/tier', { sessionId: String(sessionId), modelId, provider }, controller.signal).then(setView).catch(() => setView({ available: false }));
+        const current = () => !controller.signal.aborted && selectionRef.current === selectionKey;
+        api('session/tier', { sessionId: String(sessionId), modelId, provider }, controller.signal)
+          .then((value) => { if (current()) setView({ ...value, selectionKey }); })
+          .catch(() => { if (current()) setView({ available: false, selectionKey }); });
         return () => controller.abort();
-      }, [provider, modelId, sessionId]);
+      }, [provider, modelId, sessionId, settingsKey]);
       useEffect(() => {
         if (!open) return undefined;
         const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -1571,27 +1658,32 @@ window.__ModuleLoader__.load({
         document.addEventListener('pointerdown', close, true); document.addEventListener('keydown', esc, true);
         return () => { document.removeEventListener('pointerdown', close, true); document.removeEventListener('keydown', esc, true); };
       }, [open]);
-      if (!view?.available) return null;
+      // Hide synchronously on model/session changes, before the effect or network runs.
+      if (!view?.available || view.selectionKey !== selectionKey) return null;
       const effective = view.effective ?? 'default';
       const pick = async (tier) => {
         setBusy(true); setError('');
-        try { setView(await api('session/tier/set', { sessionId: String(sessionId), modelId, tier })); setOpen(false); }
-        catch (e) { setError(e.message); }
-        finally { setBusy(false); }
+        try {
+          const value = await api('session/tier/set', { sessionId: String(sessionId), modelId, provider, channelId: view.channelId, tier });
+          if (selectionRef.current === selectionKey) { setView({ ...value, selectionKey }); setOpen(false); }
+        }
+        catch (e) { if (selectionRef.current === selectionKey) setError(e.message); }
+        finally { if (selectionRef.current === selectionKey) setBusy(false); }
       };
-      const evidenceLabel = { standard: '', declared: t('speedDeclaredShort'), verified: t('speedVerifiedShort'), manual: t('speedManualShort') };
-      const fast = effective !== 'default';
+      const evidenceLabel = { standard: '', declared: t('speedDeclaredShort'), verified: t('speedVerifiedShort'), manual: t('speedConfiguredShort') };
+      const activeOption = view.options.find((o) => o.tier === effective);
+      const fast = effective !== 'default' || Boolean(activeOption?.wireValue && activeOption.wireValue !== 'default');
       return h('div', { className: 'nas-composer-speed', ref },
         h('style', null, COMPOSER_CSS),
         h('button', { type: 'button', className: `nas-cs-trigger ${fast ? 'on' : ''}`, 'aria-haspopup': 'menu', 'aria-expanded': open, disabled: busy,
-          'data-tip': `${t('speedComposerTip')}: ${tierName(effective)}`, 'aria-label': `${t('speedComposerTip')}: ${tierName(effective)}`, onClick: () => setOpen((v) => !v) },
+          'data-tip': `${t('speedComposerTip')}: ${tierName(effective)}${activeOption?.wireValue ? ` · service_tier: ${activeOption.wireValue}` : ''}`, 'aria-label': `${t('speedComposerTip')}: ${tierName(effective)}`, onClick: () => setOpen((v) => !v) },
           h(Icon, { name: 'bolt', size: 13 }), h('span', { className: 'nas-cs-label' }, fast ? tierName(effective) : t('speedComposerShort'))),
         open && h('div', { className: 'nas-cs-menu', role: 'menu', 'aria-label': t('speedComposerTip') },
           h('div', { className: 'nas-cs-head' }, t('speedComposerHead')),
           view.options.map((o) => {
-            const selected = (view.choice ?? view.modelDefault ?? 'default') === o.tier;
-            return h('button', { key: o.tier, type: 'button', role: 'menuitemradio', 'aria-checked': selected, className: 'nas-cs-item', disabled: busy,
-              onClick: () => pick(o.tier === (view.modelDefault ?? 'default') ? null : o.tier) },
+            const selected = (view.choice ?? view.modelDefault) === o.tier;
+            return h('button', { key: o.tier, type: 'button', role: 'menuitemradio', 'aria-checked': selected, className: 'nas-cs-item', disabled: busy, 'data-tip': o.wireValue ? `service_tier: ${o.wireValue}` : undefined,
+              onClick: () => pick(o.tier === view.modelDefault ? null : o.tier) },
               h('span', { className: 'nas-cs-name' }, tierName(o.tier)),
               evidenceLabel[o.evidence] && h('span', { className: `nas-cs-ev ${o.evidence}` }, evidenceLabel[o.evidence]),
               h('span', { className: 'nas-cs-check', 'aria-hidden': true }, selected ? h(Icon, { name: 'check', size: 12 }) : null));

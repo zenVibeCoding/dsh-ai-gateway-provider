@@ -1,5 +1,7 @@
 # AI Gateway for DeepSeek Harness
 
+[English](https://github.com/zenVibeCoding/dsh-ai-gateway-provider/blob/master/README.md) | [简体中文](https://github.com/zenVibeCoding/dsh-ai-gateway-provider/blob/master/README.zh.md)
+
 [![npm](https://img.shields.io/npm/v/dsh-ai-gateway-provider)](https://www.npmjs.com/package/dsh-ai-gateway-provider)
 [![license](https://img.shields.io/npm/l/dsh-ai-gateway-provider)](LICENSE)
 
@@ -18,7 +20,7 @@ Most providers are the same three endpoints with different names on the box. Ins
 dsh-ai-gateway-provider
 ```
 
-Requires DSH ≥ 0.2.1-rc.1.
+Requires DSH ≥ 0.2.1-rc.1 and < 0.3.0. This README describes local **0.6.0 (not yet published)**; npm `latest` is **0.5.2**. Existing screenshots are illustrative and may predate the new tier editor and composer controls.
 
 ## What it does
 
@@ -45,28 +47,36 @@ The plugin never needs to recognise a vendor — recognition only decides the ic
 
 Wire protocols per model: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Gemini. The gateway's `supported_endpoint_types` decides; the model editor can override.
 
+## Model capabilities and controls
+
+Fetching a model list also resolves per-model reasoning levels and speed tiers. Reasoning resolution prefers manual mappings, then gateway `supported_reasoning_levels` / `default_reasoning_level`, then pi-ai's bundled catalog or family defaults. Those fallbacks are model metadata, **not gateway declarations**; unrecognised support remains unknown. Only per-model `service_tiers` / `supported_service_tiers` establish speed declarations. Discovery never sends billed model probes.
+
+The model editor has independent reasoning and speed switches, with row-based add/remove controls and editable API values. Turning speed off hides the composer control and omits `service_tier`, including old conversation choices. Turning reasoning selection off removes its level menu. Detection metadata is retained for re-enabling.
+
 ## GPT / OpenAI speed tiers
 
-The model editor sets a default speed per model: Follow gateway (send nothing), Standard (`default`), Fast (`priority`), Ultrafast (`ultrafast`). It applies to this model on this gateway across sessions and is independent of reasoning effort. Only OpenAI Chat / Responses requests carry `service_tier`.
+Each speed row maps a local selector id to a wire `service_tier`. Presets are Standard → `default`, Fast → `priority`, Ultrafast → `ultrafast`. Edit their wire values or choose Custom tier, e.g. `turbo` → `vendor-priority`. When all detected tiers are present, Add creates a custom row. These per-model/per-gateway mappings persist as `allowedServiceTiers` and `serviceTierMap`; OpenAI Chat / Responses requests send the mapped wire value. There is no model-default speed dropdown: choose a tier in the conversation.
 
-**Switching in a conversation**: when the current model is an AI Gateway model with tier evidence (declared, tested in effect, or set in the editor), a *⚡ Speed* button appears left of the model button in the composer. It sets Standard / Fast / Ultrafast for **this conversation**, and the menu labels each tier's evidence. The choice applies to this model in this conversation only; other conversations keep the editor default. (DSH's model menu has no extension row for plugins, so the control sits beside it.)
+[OpenAI's Fast mode guide](https://developers.openai.com/api/docs/guides/fast-mode) documents `fast` and `priority` as equivalent request spellings; the plugin canonicalises `fast` to `priority` when comparing declarations and response stamps. [Ultrafast mode](https://developers.openai.com/api/docs/guides/ultrafast-mode) has model and availability restrictions: its presence as an editor preset does not make it available on every model, account or gateway.
+
+**Switching in a conversation**: when the current model is an AI Gateway GPT model with speed enabled and per-model declared, response-stamped, or explicitly configured tier evidence, a *⚡ Speed* button appears left of the model button in the composer. It selects preset or custom tiers for **this conversation**, and the menu labels each tier's evidence. The choice applies to this model in this conversation only; other conversations retain their existing model configuration; adding a custom row does not automatically select it. (DSH's model menu has no extension row for plugins, so the control sits beside it.)
 
 **How support is decided** — per gateway and model, with three kinds of evidence kept apart:
 
 | Evidence | Source | Shown as |
 | --- | --- | --- |
-| Gateway declaration | per-model `service_tiers` / `supported_service_tiers` / `additional_speed_tiers` in the gateway catalog (CLIProxyAPI serves it at `/v1/models?client_version=`) | declared tiers in the editor, options marked *declared* |
-| Test | **Test** sends one tiny request with the tier and reads the `service_tier` the response is stamped with | next to the result: ✓ in effect / ↓ not in effect (filtered or downgraded) / ? unconfirmed |
-| Manual trial | when nothing is declared, you choose after acknowledging the risk | dashed amber badge *Manual* |
+| Gateway declaration | per-model `service_tiers` / `supported_service_tiers` in the gateway catalog (CLIProxyAPI serves it at `/v1/models?client_version=`) | declared tiers in the editor, options marked *declared* |
+| Response stamp | **Test** sends one tiny request with the tier and reads the returned `service_tier` | ✓ matching stamp (UI: *in effect*) / ↓ different stamp / ? no stamp |
+| Manual configuration | explicitly configured local-to-wire mapping, not declared or confirmed by a matching response stamp | *Configured* in the composer menu, with the actual wire value in its tooltip |
 
-Nothing is inferred from model names, gateway brands or models.dev; an empty declared list means "no accelerated tier". Lower latency is not evidence.
+Speed support is checked for the exact gateway and upstream model, using its selected OpenAI Chat / Responses protocol. A GPT name only limits this feature's scope; neither names, gateway brands nor models.dev prove speed support. An explicitly empty declaration means "no accelerated tier declared"; absent metadata means unknown. Labels describe declarations, response stamps or manual configuration—not independent proof that the upstream actually accelerated the request. Lower latency is not proof either.
 
 **Per gateway**:
 - **CLIProxyAPI** declares tiers in its client catalog (Codex-backed GPT models usually declare Fast).
-- **New API** **strips** `service_tier` by default to avoid surprise billing; an admin must enable *allow service_tier passthrough* on the channel, or tests will report *not in effect*.
-- **Other gateways** usually declare nothing: try manually, then confirm with a test.
+- **New API** deployments may filter `service_tier` unless the channel allows passthrough; a differing or missing response stamp is not by itself a diagnosis of where filtering occurred.
+- **Other gateways** remain usable through the generic OpenAI-compatible path. Missing tier declarations stay unknown; manual mappings are optional trials, not detected support.
 
-Accelerated tiers usually cost more. Probes and catalog reads never call a model; only pressing **Test** sends a request. Anthropic / Gemini speed modes are not part of this release.
+Accelerated tiers may cost more. Connection probes and catalog reads never call a model, and there are no automatic paid probes. User-triggered **model tests** (including batch tests) and **chat** do call models and may incur charges. Anthropic / Gemini speed modes are not part of this release.
 
 ## Add a gateway
 
@@ -96,7 +106,7 @@ Only one gateway is active at a time; switching affects every session using the 
 ## Development
 
 ```sh
-npm test                                    # 105 tests against local fake gateways
+npm test                                    # 141 tests against local fake gateways
 node scripts/probe.mjs --base <url>         # probe from a shell
 GATEWAY_KEY=sk-... node scripts/probe.mjs --base <url>
 ```
