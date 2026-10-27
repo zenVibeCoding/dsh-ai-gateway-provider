@@ -76,7 +76,13 @@ Speed support is checked for the exact gateway and upstream model, using its sel
 - **New API** deployments may filter `service_tier` unless the channel allows passthrough; a differing or missing response stamp is not by itself a diagnosis of where filtering occurred.
 - **Other gateways** remain usable through the generic OpenAI-compatible path. Missing tier declarations stay unknown; manual mappings are optional trials, not detected support.
 
-Accelerated tiers may cost more. Connection probes and catalog reads never call a model, and there are no automatic paid probes. User-triggered **model tests** (including batch tests) and **chat** do call models and may incur charges. Anthropic / Gemini speed modes are not part of this release.
+Accelerated tiers may cost more. Connection probes and catalog reads never call a model, and there are no automatic paid probes. User-triggered **model tests** (including batch tests) and **chat** do call models and may incur charges. Claude / Gemini *speed modes* (where they exist) are not covered; the Gemini **protocol** itself is supported for chat and model tests.
+
+## Model tests
+
+One tiny request per model (or per batch), with a very small output cap. Results record the protocol, latency, an output preview and a classified error (no channel, bad token, rate limited, timed out). All four wire protocols are supported: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini. The Gemini test uses exactly the chat URL — `POST {gateway}/v1beta/models/{model}:streamGenerateContent?alt=sse` with `x-goog-api-key` — and requires a `finishReason`; a bare `[DONE]`, or an OpenAI-shaped stream, is not a Gemini success.
+
+Tests do call the model and may be billed. They only run when you press the button.
 
 ## Add a gateway
 

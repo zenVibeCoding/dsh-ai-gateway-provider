@@ -204,15 +204,70 @@ test('duplicate confirmed paid calls reject before discovery/submission; other c
   assert.equal(instance.paidInflight.size, 0);
 });
 
-test('Gemini and unknown protocols are unsupported and never trigger fallback/billing', async (t) => {
+test('unknown protocols are unsupported and never trigger fallback/billing', async (t) => {
   const fetch = fakeFetch(t, () => { throw new Error('must not fetch'); });
-  assert.equal(pickTestProtocol(['gemini'], []), 'unsupported');
   assert.equal(pickTestProtocol(['unknown'], []), 'unsupported');
-  assert.throws(() => requestFor('gemini', 'https://fake.invalid', 'm', FAKE_KEY), (e) => e.code === 'UNSUPPORTED');
-  const result = await tester('chat', ['gemini']).run(input);
+  assert.throws(() => requestFor('unknown', 'https://fake.invalid', 'm', FAKE_KEY), (e) => e.code === 'UNSUPPORTED');
+  const result = await tester('chat', ['unknown']).run(input);
   assert.equal(result.code, 'UNSUPPORTED');
   assert.equal(result.ok, false);
   assert.equal(fetch.mock.callCount(), 0);
+});
+
+test('Gemini test request mirrors the chat path: v1beta streamGenerateContent, x-goog-api-key, 16 tokens', async (t) => {
+  assert.equal(pickTestProtocol(['gemini'], []), 'gemini');
+  const req = requestFor('gemini', 'https://fake.invalid', 'gemini-3-pro', FAKE_KEY, { 'x-extra': '1' }, 'priority');
+  assert.equal(req.url, 'https://fake.invalid/v1beta/models/gemini-3-pro:streamGenerateContent?alt=sse');
+  assert.equal(req.headers['x-goog-api-key'], FAKE_KEY);
+  assert.equal(req.headers.authorization, undefined, 'Gemini wire does not use a Bearer header');
+  assert.equal(req.headers['x-extra'], '1');
+  assert.equal(req.body.generationConfig.maxOutputTokens, 16);
+  assert.equal('service_tier' in req.body, false, 'OpenAI service tiers never reach the Gemini wire');
+  assert.equal(requestFor('gemini', 'https://fake.invalid', 'models/gemini-x', FAKE_KEY).url, 'https://fake.invalid/v1beta/models/gemini-x:streamGenerateContent?alt=sse');
+  for (const bad of ['../evil', 'a?b', 'a&b', 'a#b', 'a b', 'a%2fb', 'a\\b']) {
+    assert.throws(() => requestFor('gemini', 'https://fake.invalid', bad, FAKE_KEY), (e) => e.code === 'INVALID_REQUEST', bad);
+  }
+  let seen;
+  fakeFetch(t, (url, init) => { seen = { url, init }; return sse(event({ candidates: [{ content: { role: 'model', parts: [{ text: 'O' }] } }] })
+    + event({ candidates: [{ content: { role: 'model', parts: [{ text: 'K' }] }, finishReason: 'STOP' }], usageMetadata: { totalTokenCount: 5 } })); });
+  const result = await tester('chat', ['gemini']).run(input);
+  assert.equal(result.ok, true);
+  assert.equal(result.protocol, 'gemini');
+  assert.equal(result.outputPreview, 'OK');
+  assert.equal(result.usage.totalTokenCount, 5);
+  assert.equal(seen.url, 'https://fake.invalid/v1beta/models/m:streamGenerateContent?alt=sse');
+  assert.equal(seen.init.redirect, 'manual');
+});
+
+test('Gemini stream: needs a finishReason, honours blocks and errors, drops thought text', async (t) => {
+  let body;
+  fakeFetch(t, () => sse(body));
+  body = event({ candidates: [{ content: { role: 'model', parts: [{ text: 'OK' }] } }] });
+  assert.equal((await tester('chat', ['gemini']).run(input)).code, 'INCOMPLETE', 'no finishReason');
+  body = done;
+  assert.equal((await tester('chat', ['gemini']).run(input)).ok, false, 'bare DONE');
+  body = event({ candidates: [{ content: { role: 'model', parts: [{ text: 'thinking', thought: true }, { text: 'OK' }] }, finishReason: 'STOP' }] });
+  assert.equal((await tester('chat', ['gemini']).run(input)).outputPreview, 'OK');
+  body = event({ candidates: [{ finishReason: 'MAX_TOKENS' }] });
+  assert.equal((await tester('chat', ['gemini']).run(input)).ok, true, 'thinking budget used up still proves the route');
+  body = event({ promptFeedback: { blockReason: 'SAFETY' }, candidates: [{ finishReason: 'SAFETY' }] });
+  const blocked = await tester('chat', ['gemini']).run(input);
+  assert.equal(blocked.ok, false);
+  assert.match(blocked.error, /SAFETY/);
+  body = event({ error: { code: 400, message: `bad ${FAKE_KEY}` } });
+  const failed = await tester('chat', ['gemini']).run(input);
+  assert.equal(failed.ok, false);
+  assert.ok(!JSON.stringify(failed).includes(FAKE_KEY));
+  body = event({ choices: [{ delta: { content: 'OK' }, finish_reason: 'stop' }] });
+  assert.equal((await tester('chat', ['gemini']).run(input)).ok, false, 'an OpenAI stream is not a Gemini answer');
+});
+
+test('Gemini HTTP errors are classified and redacted', async (t) => {
+  fakeFetch(t, () => json({ error: { code: 403, message: `API key not valid ${FAKE_KEY}`, status: 'PERMISSION_DENIED' } }, 403));
+  const result = await tester('chat', ['gemini']).run(input);
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'AUTH');
+  assert.ok(!JSON.stringify(result).includes(FAKE_KEY));
 });
 
 test('images require actual payload; safe HTTP(S) previews only, no token-bearing URLs', async (t) => {

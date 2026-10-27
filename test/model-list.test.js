@@ -91,7 +91,8 @@ test('catalog cache key changes when the enabled list changes', () => {
 test('protocol choice and request shapes', () => {
   assert.equal(pickTestProtocol(['openai'], ['openai', 'anthropic']), 'openai');
   assert.equal(pickTestProtocol(['openai-response', 'anthropic'], ['openai', 'anthropic', 'openai-response']), 'anthropic');
-  assert.equal(pickTestProtocol(['gemini'], []), 'unsupported');
+  assert.equal(pickTestProtocol(['gemini'], []), 'gemini');
+  assert.equal(pickTestProtocol(['gemini', 'openai'], ['openai', 'gemini']), 'openai', 'priority still wins');
   const a = requestFor('anthropic', 'http://g', 'm', 'sk-x');
   assert.equal(a.url, 'http://g/v1/messages');
   assert.equal(a.headers['x-api-key'], 'sk-x');
