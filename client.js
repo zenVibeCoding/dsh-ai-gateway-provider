@@ -9,16 +9,17 @@ window.__ModuleLoader__.load({
     const ZH = {
       nav: 'AI 网关', title: 'AI 网关', subtitle: '接入任意 OpenAI 兼容网关，管理它的模型、参数和额度。',
       refresh: '同步数据', refreshing: '同步中…', add: '添加渠道', channels: '渠道与连接', models: '模型能力', media: '生成记录',
-      channelHint: '同一时间只激活一个网关，对话里的「AI Gateway」模型随之切换。', activateShort: '激活', activeTip: '当前激活的渠道', inactiveTip: '未激活的渠道', healthOk: '连接正常，额度已同步',
+      channelHint: '所有网关同时可用：每台在对话的模型选择器里各成一组，同名模型也不会混淆。', gatewayViewHint: '只改变这里显示哪台网关的详情和模型清单，不影响对话可用性。', healthOk: '连接正常，额度已同步',
       healthNoKey: '尚未设置令牌', healthBad: '连接异常', healthStale: '额度数据已过期', healthUnknown: '尚未检测',
-      activateTip: '切换到这个渠道', channelTestTip: '测试连接（只读取模型目录，不产生费用）', editChannelTip: '编辑渠道设置', removeChannelTip: '删除这个渠道',
+      viewGatewayTip: '查看这台网关的详情', channelTestTip: '测试连接（只读取模型目录，不产生费用）', editChannelTip: '编辑渠道设置', removeChannelTip: '删除这个渠道',
+      hideGatewayTip: '在模型选择器中隐藏：其模型不再出现在对话的模型选择器', showGatewayTip: '重新显示到模型选择器',
+      gatewayHiddenBadge: '已隐藏', gatewayHidden: '已从模型选择器隐藏', gatewayShown: '已在模型选择器中显示',
       modelTestChatTip: '测试此模型（发送一次极短请求，会产生少量费用）', modelTestPaidTip: '测试此模型（会实际生成，需二次确认）',
-      modelsOfChannel: '渠道', viewingInactive: '正在查看未激活渠道的模型清单。编辑会保存到该渠道，但对话中使用的仍是当前激活渠道。',
+      modelsOfChannel: '渠道',
       channelModelsHint: '每个渠道独立维护自己的模型清单和参数。', loadingModels: '正在读取该渠道的模型…', modelsLoadFailed: '读取模型失败',
-      active: '使用中', inactive: '未激活', activate: '激活此渠道', edit: '编辑', remove: '删除', cancel: '取消', confirmRemove: '确认删除',
+      edit: '编辑', remove: '删除', cancel: '取消', confirmRemove: '确认删除',
       deleteHint: '只移除渠道配置；不会删除凭据或上游账号。', lastChannel: '至少保留一个渠道',
-      activateHint: '切换会影响所有使用此插件的会话。',
-      currentChannel: '当前激活渠道', tokenUsed: '令牌累计已用', tokenRemaining: '令牌剩余额度', accountBalance: '账户剩余额度',
+      currentChannel: '查看的渠道', tokenUsed: '令牌累计已用', tokenRemaining: '令牌剩余额度', accountBalance: '账户剩余额度',
       unlimited: '令牌额度不限', totalModels: '可发现模型', chat: '对话', image: '生图', video: '视频', audio: '音频', embedding: '向量', other: '其他',
       all: '全部', text: '文本', pdf: 'PDF', inputImage: '图片', inputVideo: '视频', inputAudio: '音频',
       credentialSet: '凭据已设置', credentialMissing: '未设置凭据', failed: '连接异常', loading: '正在加载…', retry: '重试',
@@ -43,6 +44,7 @@ window.__ModuleLoader__.load({
       nameSuggestedHint: '已用网关自己声明的名称填好，可以改。', siteTitleLine: (title) => `站点标题：${title}`,
       factType: '网关类型', factQuota: '额度来源', factProtocols: '对话协议', factCoverage: '模型资料', factList: '模型清单',
       factListAuto: '自动（网关新增自动出现）', factListManual: '手动清单', factEndpoints: '公开接口', factUptime: '已运行', factChecked: '保存时检查', factDocs: '文档',
+      gatewayHiddenHint: '隐藏后其模型不会出现在对话的模型选择器；网关注册仍然保留，历史会话照常解析。', modelPickerGroup: '模型选择器分组',
       factCoverageValue: (known, total) => `${known} / ${total} 个对话模型有资料`,
       quotaKind_new_api: 'New API 令牌额度', quotaKind_litellm: 'LiteLLM 预算', quotaKind_openai_billing: 'OpenAI 风格账单接口',
       genericGateway: 'OpenAI 兼容网关', quotaNone: '无额度接口', healthNoQuota: '这个网关没有额度接口，连接状态请点「测试连接」',
@@ -53,12 +55,13 @@ window.__ModuleLoader__.load({
       newChannel: '添加网关', editChannel: '编辑渠道', channelName: '渠道名称', channelNamePlaceholder: '例如：主力站点、备用网关',
       address: '网关地址', addressHint: '支持填写站点根地址，或以 /v1 结尾的地址。',
       apiKey: 'API 令牌', keyPlaceholder: 'sk-…', keyUnchanged: '留空则继续使用已有凭据',
-      keyHint: '只写入 DSH 凭据库，不回显、不存进渠道配置。', activateOnSave: '保存后激活此渠道',
+      keyHint: '只写入 DSH 凭据库，不回显、不存进渠道配置。',
+      identify: '获取信息', identifying: '识别中…', identifyHint: '只读取公开信息（名称、图标、网关类型、版本），不需要令牌，也不调用模型。', identifyFailed: '未能识别这台网关',
       connectionSection: '连接信息', credentialSection: '访问凭据', keyRequiredForAddress: '网关地址已修改：为安全起见，需要重新填写此网关的令牌。',
       keyWillReplace: '保存后将替换为新令牌', showKey: '显示', hideKey: '隐藏',
       testConnection: '测试连接', testing: '测试中…', testPassed: '连接成功', testHint: '仅查询模型目录，不产生模型调用费用。',
       editHint: '每个渠道独立保存地址、凭据及模型覆盖参数。', newHint: '填写任意 OpenAI 兼容网关的地址和调用令牌。保存时会先检查它能否列出模型。',
-      conflict: '配置已被其他窗口修改。请关闭编辑框并刷新后重试。', saved: '已保存渠道', activated: '已切换激活渠道', removed: '已移除渠道',
+      conflict: '配置已被其他窗口修改。请关闭编辑框并刷新后重试。', saved: '已保存渠道', removed: '已移除渠道',
       filter: '按名称或供应商搜索', modelsHint: '以下目录属于当前激活渠道。能力信息来自 models.dev，并不保证中转站实际支持；可按模型校正。',
       namingSection: '名称与映射', capacitySection: '容量与能力', advancedOptions: '高级选项',
       localModelId: '本地模型 ID', upstreamModel: '上游映射模型名', upstreamHint: '实际发送给网关的 model。留空使用本地模型 ID，不会重命名现有会话。',
@@ -122,16 +125,17 @@ window.__ModuleLoader__.load({
     const EN = {
       nav: 'AI Gateway', title: 'AI Gateway', subtitle: 'Connect any OpenAI-compatible gateway and manage its models, parameters and quota.',
       refresh: 'Sync data', refreshing: 'Syncing…', add: 'Add gateway', channels: 'Gateways', models: 'Model capabilities', media: 'Generations',
-      channelHint: 'One gateway is active at a time; the “AI Gateway” models in chat follow it.', activateShort: 'Activate', activeTip: 'Active gateway', inactiveTip: 'Not active', healthOk: 'Connected; quota is up to date',
+      channelHint: 'Every gateway is usable at once: each one is its own group in the chat model picker, so same-named models never collide.', gatewayViewHint: 'Only changes which gateway\'s details and model list are shown here; availability in chat is unaffected.', healthOk: 'Connected; quota is up to date',
       healthNoKey: 'No token stored yet', healthBad: 'Connection problem', healthStale: 'Quota data is stale', healthUnknown: 'Not checked yet',
-      activateTip: 'Switch to this gateway', channelTestTip: 'Test connection (reads the model list only; no charge)', editChannelTip: 'Edit gateway settings', removeChannelTip: 'Remove this gateway',
-      modelsOfChannel: 'Gateway', viewingInactive: 'Viewing an inactive gateway\'s model list. Edits are saved to that gateway; chats still use the active one.',
+      viewGatewayTip: 'Show this gateway\'s details', channelTestTip: 'Test connection (reads the model list only; no charge)', editChannelTip: 'Edit gateway settings', removeChannelTip: 'Remove this gateway',
+      hideGatewayTip: 'Hide from the model picker: its models leave the chat model picker', showGatewayTip: 'Show in the model picker again',
+      gatewayHiddenBadge: 'Hidden', gatewayHidden: 'Hidden from the model picker', gatewayShown: 'Shown in the model picker',
+      modelsOfChannel: 'Gateway',
       channelModelsHint: 'Each gateway keeps its own model list and parameters.', loadingModels: 'Reading this gateway\'s models…', modelsLoadFailed: 'Could not read models',
       modelTestChatTip: 'Test this model (one tiny request; a small charge)', modelTestPaidTip: 'Test this model (real generation; asks to confirm)',
-      active: 'Active', inactive: 'Inactive', activate: 'Activate', edit: 'Edit', remove: 'Remove', cancel: 'Cancel', confirmRemove: 'Remove gateway',
+      edit: 'Edit', remove: 'Remove', cancel: 'Cancel', confirmRemove: 'Remove gateway',
       deleteHint: 'Removes configuration only, not the credential or upstream account.', lastChannel: 'Keep at least one gateway',
-      activateHint: 'Switching affects every session using this plugin.',
-      currentChannel: 'Active gateway', tokenUsed: 'Token total used', tokenRemaining: 'Token quota remaining', accountBalance: 'Account balance',
+      currentChannel: 'Viewing gateway', tokenUsed: 'Token total used', tokenRemaining: 'Token quota remaining', accountBalance: 'Account balance',
       unlimited: 'Unlimited token', totalModels: 'Discovered models', chat: 'Chat', image: 'Image', video: 'Video', audio: 'Audio', embedding: 'Embedding', other: 'Other',
       all: 'All', text: 'Text', pdf: 'PDF', inputImage: 'Image', inputVideo: 'Video', inputAudio: 'Audio',
       credentialSet: 'Credential set', credentialMissing: 'No credential', failed: 'Connection issue', loading: 'Loading…', retry: 'Retry',
@@ -156,6 +160,7 @@ window.__ModuleLoader__.load({
       nameSuggestedHint: 'Filled with the name the gateway declares; you can change it.', siteTitleLine: (title) => `Site title: ${title}`,
       factType: 'Gateway type', factQuota: 'Quota source', factProtocols: 'Chat protocols', factCoverage: 'Model data', factList: 'Model list',
       factListAuto: 'Automatic (new models appear)', factListManual: 'Manual list', factEndpoints: 'Public endpoints', factUptime: 'Running for', factChecked: 'Checked at save', factDocs: 'Docs',
+      gatewayHiddenHint: 'When hidden, its models leave the chat model picker. The gateway stays registered, so existing sessions still resolve.', modelPickerGroup: 'Model picker group',
       factCoverageValue: (known, total) => `${known} of ${total} chat models have data`,
       quotaKind_new_api: 'New API token quota', quotaKind_litellm: 'LiteLLM budget', quotaKind_openai_billing: 'OpenAI-style billing routes',
       genericGateway: 'OpenAI-compatible gateway', quotaNone: 'No quota endpoint', healthNoQuota: 'This gateway has no quota endpoint; use Test connection to check it',
@@ -166,12 +171,13 @@ window.__ModuleLoader__.load({
       newChannel: 'Add gateway', editChannel: 'Edit gateway', channelName: 'Gateway name', channelNamePlaceholder: 'Primary, backup…',
       address: 'Gateway URL', addressHint: 'Use the site root or an address ending in /v1.',
       apiKey: 'API token', keyPlaceholder: 'sk-…', keyUnchanged: 'Leave blank to keep the stored credential',
-      keyHint: 'Stored only in DSH credentials. Never echoed or saved in gateway configuration.', activateOnSave: 'Activate after saving',
+      keyHint: 'Stored only in DSH credentials. Never echoed or saved in gateway configuration.',
+      identify: 'Fetch info', identifying: 'Identifying…', identifyHint: 'Reads public information only (name, icon, gateway type, version). No token, no model call.', identifyFailed: 'Could not identify this gateway',
       connectionSection: 'Connection', credentialSection: 'Credential', keyRequiredForAddress: 'The gateway address changed. For safety, enter this gateway\'s token again.',
       keyWillReplace: 'The new token replaces the stored one on save', showKey: 'Show', hideKey: 'Hide',
       testConnection: 'Test connection', testing: 'Testing…', testPassed: 'Connected', testHint: 'Queries the model list only; no paid model call.',
       editHint: 'Each gateway keeps its own URL, credential and model overrides.', newHint: 'Connect any OpenAI-compatible gateway URL and token. Saving first checks that it lists its models.',
-      conflict: 'Another window changed the configuration. Close the editor and refresh before retrying.', saved: 'Gateway saved', activated: 'Active gateway changed', removed: 'Gateway removed',
+      conflict: 'Another window changed the configuration. Close the editor and refresh before retrying.', saved: 'Gateway saved', removed: 'Gateway removed',
       filter: 'Search model or vendor', modelsHint: 'Models belong to the active gateway. models.dev metadata does not guarantee upstream support; correct it per model as needed.',
       namingSection: 'Naming & mapping', capacitySection: 'Limits & capabilities', advancedOptions: 'Advanced options',
       localModelId: 'Local model ID', upstreamModel: 'Upstream model name', upstreamHint: 'The model sent to the gateway. Leave blank to use the local ID; existing sessions keep their model identity.',
@@ -402,7 +408,6 @@ window.__ModuleLoader__.load({
       @container(max-width:520px){.nas-model-head.v2,.nas-model-row.v2{grid-template-columns:minmax(80px,1fr) 88px 112px;gap:8px;padding-left:10px;padding-right:10px}.nas-model-head.v2>:nth-child(2),.nas-model-row.v2>.nas-model-cap{display:none}.nas-model-head.v2>:nth-child(3){display:block}}
       .nas-dialog.nas-model-editor{max-width:620px;background:var(--nas-bg)}.nas-model-editor .nas-dialog-head{padding-bottom:16px}.nas-model-editor .nas-dialog-head h3{font-size:18px}.nas-model-editor .nas-dialog-foot{position:sticky;bottom:0;z-index:1;background:var(--nas-bg)}.nas-editor-identity{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:0 0 18px;border:1px solid var(--nas-line);border-radius:8px;background:var(--dsw-alias-bg-base)}.nas-editor-identity .nas-vendor-mark{width:26px;height:26px}.nas-editor-identity .nas-sub{font-size:10px;margin-bottom:3px}.nas-editor-identity code{font-family:inherit;font-size:12px;overflow-wrap:anywhere}.nas-editor-section{border-top:1px solid var(--nas-line);padding-top:16px;margin-top:16px}.nas-editor-section-title{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;margin-bottom:14px}.nas-editor-section-title>span{font-size:10px;color:var(--nas-sub);font-weight:400;letter-spacing:.06em}.nas-model-editor .nas-field{gap:5px;margin-bottom:14px}.nas-model-editor .nas-field input:not([type=checkbox]),.nas-model-editor .nas-field select{height:37px;background:var(--dsw-alias-bg-base)}.nas-number-field{position:relative}.nas-number-field input{padding-right:55px!important;font-variant-numeric:tabular-nums}.nas-number-field>span{position:absolute;right:10px;top:9px;color:var(--nas-sub);font-size:10px;pointer-events:none}.nas-mapping-preview{border-radius:7px;background:var(--nas-raised);padding:10px 12px;margin:0 0 4px}.nas-mapping-preview>.nas-sub{font-size:10px}.nas-mapping-path{display:flex;align-items:center;gap:10px;margin-top:5px;min-width:0}.nas-mapping-path code{font:inherit;font-size:11px;overflow-wrap:anywhere;min-width:0;flex:1}.nas-mapping-path svg{flex-shrink:0;color:var(--nas-sub)}.nas-mapping-path code.mapped{color:var(--nas-brand)}.nas-editor-cap-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;font-size:12px;font-weight:500}.nas-segment{display:flex;border:1px solid var(--nas-line);padding:2px;border-radius:6px;gap:2px;background:var(--dsw-alias-bg-base)}.nas-segment button{border:0;background:transparent;color:var(--nas-sub);border-radius:4px;padding:3px 9px;font-size:10px;line-height:1.4}.nas-segment button[aria-pressed=true]{background:var(--nas-raised);color:var(--nas-text)}.nas-modality-options{display:flex;flex-wrap:wrap;gap:6px}.nas-modality-options button{display:flex;align-items:center;gap:5px;border:1px solid var(--nas-line);background:var(--dsw-alias-bg-base);color:var(--nas-sub);padding:5px 9px;border-radius:6px;font-size:11px}.nas-modality-options button.selected{border-color:color-mix(in srgb,var(--nas-brand) 35%,var(--nas-line));color:var(--nas-brand);background:color-mix(in srgb,var(--nas-brand) 5%,var(--nas-bg))}.nas-modality-options button:disabled{opacity:1;cursor:default}.nas-editor-advanced{border-top:1px solid var(--nas-line);padding:14px 0 2px;margin-top:6px}.nas-editor-advanced summary{cursor:pointer;font-size:12px;color:var(--nas-sub)}.nas-editor-advanced[open] summary{margin-bottom:15px}.nas-editor-dirty{width:5px;height:5px;background:var(--dsw-alias-state-warn-primary);border-radius:50%;margin-right:2px}.nas-editor-reset{display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--dsw-alias-state-warn-primary);background:var(--nas-raised);padding:10px;border-radius:6px;margin-top:12px}.nas-editor-reset svg{flex-shrink:0}.nas-model-editor .nas-error{margin-top:12px}
       .nas-dialog.nas-channel-editor{max-width:560px}.nas-editor-section.first{border-top:0;padding-top:0;margin-top:0}.nas-channel-editor .nas-editor-identity .nas-channel-mark{width:32px;height:32px;color:var(--nas-brand)}.nas-input-icon{position:relative;display:flex;align-items:center}.nas-input-icon>svg{position:absolute;left:11px;color:var(--nas-sub);pointer-events:none}.nas-input-icon input{padding-left:33px!important;padding-right:56px!important}.nas-input-toggle{position:absolute;right:6px;border:0;background:transparent;color:var(--nas-sub);font-size:11px;padding:4px 7px;border-radius:5px}.nas-input-toggle:hover{background:var(--nas-raised);color:var(--nas-text)}.nas-key-state{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--nas-sub);margin:-4px 0 4px}
-      .nas-activate-row{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--nas-line);border-radius:8px;padding:11px 14px;margin-top:16px;cursor:pointer;background:var(--dsw-alias-bg-base)}.nas-activate-row strong{font-size:12px;font-weight:500}.nas-activate-row .nas-sub{font-size:11px;margin-top:2px}.nas-activate-row input{appearance:none;flex-shrink:0;width:32px;height:18px;border-radius:9px;background:var(--dsw-alias-border-l2);position:relative;cursor:pointer;transition:background .15s;margin:0}.nas-activate-row input::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--dsw-alias-bg-base);transition:transform .15s}.nas-activate-row input:checked{background:var(--nas-brand)}.nas-activate-row input:checked::after{transform:translateX(14px)}
       .nas-test-panel{border:1px solid var(--nas-line);border-radius:8px;margin-top:16px;overflow:hidden}.nas-test-head{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:12px}.nas-test-badge{display:inline-flex;align-items:center;gap:5px;font-weight:600}.nas-test-panel.ok .nas-test-badge{color:var(--dsw-alias-state-success-primary)}.nas-test-panel.bad .nas-test-badge{color:var(--dsw-alias-state-error-primary)}.nas-test-head .num{font-variant-numeric:tabular-nums;color:var(--nas-sub)}.nas-test-stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--nas-line)}.nas-test-stat{padding:10px 14px;display:flex;flex-direction:column;gap:2px}.nas-test-stat+.nas-test-stat{border-left:1px solid var(--nas-line)}.nas-test-stat strong{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2}.nas-test-stat span{font-size:10px;color:var(--nas-sub)}.nas-test-error{border-top:1px solid var(--nas-line);padding:10px 14px;font-size:11px;color:var(--dsw-alias-state-error-primary);overflow-wrap:anywhere;white-space:pre-wrap}
       /* Channel rows: one active marker (ring + brand name), a health heart, and hover tooltips. */
       .nas-ch-wrap{container-type:inline-size;position:relative}
@@ -553,6 +558,22 @@ window.__ModuleLoader__.load({
       .nas-name-row input{flex:1;min-width:0}
       .nas-name-preview{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
       .nas-input-icon .nas-gw-favicon{width:15px;height:15px;border-radius:3px}
+      .nas-input-group{display:flex;align-items:center;gap:9px;height:37px;padding:0 7px 0 11px;border:1px solid var(--nas-line);border-radius:7px;background:var(--dsw-alias-bg-base);transition:border-color .15s,box-shadow .15s}
+      .nas-input-group:focus-within{border-color:var(--nas-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--nas-brand) 14%,transparent)}
+      .nas-input-group>svg{flex:none;color:var(--nas-sub)}
+      .nas-input-group>.nas-gw-favicon{flex:none;width:15px;height:15px;border-radius:3px}
+      .nas-input-group>input{flex:1;min-width:0;height:100%!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;outline:0}
+      .nas-identify-btn{display:inline-flex;align-items:center;gap:5px;flex:none;height:25px;padding:0 9px;border:1px solid var(--nas-line);border-radius:6px;background:var(--nas-raised);color:var(--nas-sub);font:inherit;font-size:11px;line-height:1;cursor:pointer;white-space:nowrap;animation:nas-in .18s ease-out}
+      .nas-identify-btn:hover:not(:disabled){background:var(--dsw-alias-bg-base);color:var(--nas-text);border-color:color-mix(in srgb,var(--nas-brand) 45%,var(--nas-line));transform:translateY(-1px);box-shadow:0 1px 3px rgb(0 0 0 / 8%)}
+      .nas-identify-btn:active:not(:disabled){transform:translateY(0);box-shadow:none}
+      .nas-identify-btn:disabled{opacity:.65;cursor:default}
+      .nas-identify-btn:focus-visible{outline:0;box-shadow:0 0 0 2px color-mix(in srgb,var(--nas-brand) 35%,transparent)}
+      .nas-identify-btn .nas-ring{width:10px;height:10px;border-radius:50%;border:1.5px solid color-mix(in srgb,var(--nas-sub) 35%,transparent);border-top-color:var(--nas-text);animation:nas-ring .7s linear infinite}
+      @keyframes nas-ring{to{transform:rotate(360deg)}}
+      @keyframes nas-in{from{opacity:0;transform:translateX(4px)}to{opacity:1;transform:none}}
+      @media(prefers-reduced-motion:reduce){.nas-identify-btn{animation:none}.nas-identify-btn:hover:not(:disabled){transform:none}.nas-identify-btn .nas-ring{animation-duration:2.4s}}
+      .nas-identify{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:11px;line-height:1.5;color:var(--nas-text);flex-wrap:wrap}
+      .nas-identify-dim{color:var(--nas-sub)}
       /* Tooltips: instant, themed, keyboard accessible. */
       .nas [data-tip]{position:relative}
       .nas [data-tip]::after{content:attr(data-tip);position:absolute;z-index:60;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);width:max-content;max-width:270px;padding:6px 9px;border-radius:7px;border:1px solid var(--nas-line);background:var(--dsw-alias-bg-overlay);color:var(--nas-text);font-size:11px;font-weight:400;line-height:1.55;text-align:left;white-space:pre-line;box-shadow:0 8px 24px color-mix(in srgb,var(--dsw-alias-label-primary) 16%,transparent);opacity:0;pointer-events:none;transition:opacity .12s}
@@ -565,7 +586,7 @@ window.__ModuleLoader__.load({
       @container(max-width:620px){.nas-ch-row{gap:10px}.nas-ch-health span{display:none}.nas-ch-amount{font-size:12px}.nas-ch-actions .nas-icon-btn{min-width:26px;width:26px}}
       @container(max-width:430px){.nas-ch-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 64px auto;gap:8px}.nas-ch-mark{display:none}.nas-ch-amount{overflow:hidden;text-overflow:ellipsis}.nas-ch-actions .nas-icon-btn{min-width:26px;width:26px}}
       @media(max-width:520px){.nas-test-stats{grid-template-columns:repeat(2,1fr)}.nas-test-stat:nth-child(3){border-left:0;border-top:1px solid var(--nas-line)}.nas-test-stat:nth-child(4){border-top:1px solid var(--nas-line)}}
-      @media(prefers-reduced-motion:reduce){.nas-spin{animation:none}.nas-btn{transition:none}.nas-progress>i{transition:none}.nas-activate-row input,.nas-activate-row input::after{transition:none}}
+      @media(prefers-reduced-motion:reduce){.nas-spin{animation:none}.nas-btn{transition:none}.nas-progress>i{transition:none}}
     `;
     function Styles() { return h('style', null, CSS); }
     function apiUrl(path) {
@@ -689,12 +710,12 @@ window.__ModuleLoader__.load({
     }
     function ChannelEditor({ channel, revision, onClose, onSaved }) {
       const t = useT(); const prefix = useId();
-      const [form, setForm] = useState({ name: channel?.name || '', baseURL: channel?.baseURL || '', apiKey: '', activate: false, nameSuggested: false });
-      const [tested, setTested] = useState(); const [validation, setValidation] = useState('');
+      const [form, setForm] = useState({ name: channel?.name || '', baseURL: channel?.baseURL || '', apiKey: '', nameSuggested: false });
+      const [tested, setTested] = useState(); const [identified, setIdentified] = useState(); const [validation, setValidation] = useState('');
       const [op, setOp] = useState(''); const [showKey, setShowKey] = useState(false); const a = useAction();
       const busy = Boolean(op);
-      const set = (k) => (e) => { setForm((old) => ({ ...old, [k]: e.target.value })); setTested(undefined); setValidation(''); };
-      const dirty = form.name !== (channel?.name || '') || form.baseURL !== (channel?.baseURL || '') || Boolean(form.apiKey) || form.activate;
+      const set = (k) => (e) => { setForm((old) => ({ ...old, [k]: e.target.value })); setTested(undefined); if (k === 'baseURL') setIdentified(undefined); setValidation(''); };
+      const dirty = form.name !== (channel?.name || '') || form.baseURL !== (channel?.baseURL || '') || Boolean(form.apiKey);
       // Changing the address of a saved channel needs a fresh token: the stored one is never sent to a new host.
       const addressChanged = Boolean(channel) && form.baseURL.trim().replace(/\/+$/, '') !== String(channel.baseURL || '').replace(/\/+$/, '');
       const check = (isTest) => {
@@ -704,7 +725,10 @@ window.__ModuleLoader__.load({
         return '';
       };
       const run = (kind, fn) => async () => {
-        const problem = check(kind === 'test');
+        const problem = kind === 'identify' ? (() => {
+          try { const u = new URL(form.baseURL.trim()); return ['http:', 'https:'].includes(u.protocol) && !u.username && !u.password ? '' : t('addressRequired'); }
+          catch { return t('addressRequired'); }
+        })() : check(kind === 'test');
         if (problem) return setValidation(problem);
         setOp(kind);
         try { await a.run(fn); } finally { setOp(''); }
@@ -716,10 +740,25 @@ window.__ModuleLoader__.load({
         if (result?.ok && result.suggestedName) setForm((old) => (old.name.trim() ? old : { ...old, name: result.suggestedName, nameSuggested: true }));
         return result;
       });
+      // Address-only lookup: no token is read or sent, so it can run before a key exists.
+      const identifyNow = run('identify', async () => {
+        let result;
+        try { result = await api('channel/identify', { baseURL: form.baseURL.trim() }); }
+        catch (e) { setValidation(`${t('identifyFailed')}: ${e.message}`); return undefined; }
+        setIdentified(result);
+        if (result?.ok && result.suggestedName) setForm((old) => (old.name.trim() ? old : { ...old, name: result.suggestedName, nameSuggested: true }));
+        return result;
+      });
       const save = run('save', async () => { await store.mutate('channel/save', { id: channel?.id, revision, ...form, baseURL: form.baseURL.trim() }); onSaved(); });
       const discard = () => { if (!dirty || window.confirm(t('changeDiscard'))) onClose(); };
       const sectionTitle = (n, key) => h('div', { className: 'nas-editor-section-title' }, h('span', null, n), t(key));
       const count = (label, value) => h('div', { className: 'nas-test-stat' }, h('strong', null, value ?? 0), h('span', null, t(label)));
+      const previewIcon = identified?.icon ?? tested?.icon ?? channel?.backend?.icon;
+      const addressValid = (() => {
+        const raw = form.baseURL.trim();
+        if (!raw) return false;
+        try { const u = new URL(raw); return ['http:', 'https:'].includes(u.protocol) && !u.username && !u.password; } catch { return false; }
+      })();
       return h(Modal, { title: t(channel ? 'editChannel' : 'newChannel'), hint: t(channel ? 'editHint' : 'newHint'), onClose, busy, dirty, className: 'nas-model-editor nas-channel-editor',
         footer: h(React.Fragment, null,
           h(Button, { icon: op === 'test' ? 'refresh' : 'stopwatch', 'aria-busy': op === 'test', onClick: test, disabled: busy }, t(op === 'test' ? 'testing' : 'testConnection')),
@@ -732,27 +771,36 @@ window.__ModuleLoader__.load({
         channel && h('div', { className: 'nas-editor-identity' },
           h('div', { className: 'nas-channel-mark' }, h(Icon, { name: 'gateway', size: 17 })),
           h('div', { style: { minWidth: 0, flex: 1 } }, h('div', { className: 'nas-sub' }, channel.name), h('code', null, channel.baseURL)),
-          h(Badge, { tone: channel.active ? 'active' : '' }, channel.active && h(Icon, { name: 'check', size: 11 }), t(channel.active ? 'active' : 'inactive'))),
+          channel.hidden && h(Badge, { tone: 'warn' }, h(Icon, { name: 'eyeOff', size: 11 }), t('gatewayHiddenBadge'))),
         h('section', { className: 'nas-editor-section first' }, sectionTitle('01', 'connectionSection'),
+          h(Field, { label: t('address'), hint: t('addressHint'), htmlFor: `${prefix}-url` },
+            h('div', { className: 'nas-input-group' },
+              (previewIcon)
+                ? h('img', { className: 'nas-gw-favicon', src: previewIcon, alt: '', width: 15, height: 15, decoding: 'async' })
+                : h(Icon, { name: 'gateway', size: 14 }),
+              h('input', { id: `${prefix}-url`, type: 'url', value: form.baseURL, onChange: set('baseURL'), placeholder: 'https://api.example.com', spellCheck: false, autoComplete: 'off', autoFocus: true, 'data-autofocus': true, disabled: busy }),
+              addressValid && h('button', {
+                type: 'button', className: 'nas-identify-btn', onClick: identifyNow, disabled: busy,
+                'aria-busy': op === 'identify', title: t('identifyHint'), 'data-tip': t('identifyHint'), 'data-tip-align': 'end',
+              }, op === 'identify' && h('i', { className: 'nas-ring', 'aria-hidden': true }),
+                h('span', null, t(op === 'identify' ? 'identifying' : 'identify')))))),
           h(Field, { label: t('channelName'), htmlFor: `${prefix}-name`, hint: form.nameSuggested && form.name ? t('nameSuggestedHint') : null },
             h('div', { className: 'nas-name-row' },
               form.nameSuggested && form.name && h('span', { className: 'nas-name-preview' }, h(GatewayMark, { family: tested?.family ?? channel?.backend?.family, icon: tested?.icon ?? channel?.backend?.icon, size: 15 })),
-              h('input', { id: `${prefix}-name`, value: form.name, onChange: set('name'), placeholder: t('channelNamePlaceholder'), maxLength: 80, autoFocus: true, 'data-autofocus': true, disabled: busy }))),
-          h(Field, { label: t('address'), hint: t('addressHint'), htmlFor: `${prefix}-url` },
-            h('div', { className: 'nas-input-icon' },
-              (tested?.icon || channel?.backend?.icon)
-                ? h('img', { className: 'nas-gw-favicon', src: tested?.icon || channel?.backend?.icon, alt: '', width: 15, height: 15, decoding: 'async' })
-                : h(Icon, { name: 'gateway', size: 14 }),
-              h('input', { id: `${prefix}-url`, type: 'url', value: form.baseURL, onChange: set('baseURL'), placeholder: 'https://api.example.com', spellCheck: false, autoComplete: 'off', disabled: busy })))),
+              h('input', { id: `${prefix}-name`, value: form.name, onChange: set('name'), placeholder: t('channelNamePlaceholder'), maxLength: 80, disabled: busy }))),
+          identified && h('div', { className: 'nas-identify', role: 'status' },
+            identified.ok
+              ? [h(GatewayMark, { family: identified.family, icon: identified.icon, size: 14 }),
+                h('span', null, familyLabel({ family: identified.family, name: identified.familyName }, t)),
+                identified.version && h('span', { className: 'nas-identify-dim' }, `· ${identified.version}`),
+                identified.siteTitle && h('span', { className: 'nas-identify-dim' }, `· ${identified.siteTitle}`)]
+              : [h(Icon, { name: 'alert', size: 13 }), h('span', null, t('identifyFailed'))]),
         h('section', { className: 'nas-editor-section' }, sectionTitle('02', 'credentialSection'),
           h(Field, { label: t('apiKey'), hint: addressChanged ? t('keyRequiredForAddress') : t('keyHint'), htmlFor: `${prefix}-key` },
             h('div', { className: 'nas-input-icon' }, h(Icon, { name: 'key', size: 14 }),
               h('input', { id: `${prefix}-key`, type: showKey ? 'text' : 'password', autoComplete: 'new-password', spellCheck: false, value: form.apiKey, onChange: set('apiKey'), placeholder: t(channel && !addressChanged ? 'keyUnchanged' : 'keyPlaceholder'), disabled: busy }),
               form.apiKey && h('button', { type: 'button', className: 'nas-input-toggle', onClick: () => setShowKey(!showKey), 'aria-pressed': showKey, title: t(showKey ? 'hideKey' : 'showKey') }, t(showKey ? 'hideKey' : 'showKey')))),
           channel && h('div', { className: 'nas-key-state' }, h('span', { className: `nas-dot ${channel.keyConfigured ? 'ok' : 'warn'}` }), t(form.apiKey ? 'keyWillReplace' : channel.keyConfigured ? 'credentialSet' : 'credentialMissing'))),
-        !channel?.active && h('label', { className: 'nas-activate-row' },
-          h('div', null, h('strong', null, t('activateOnSave')), h('div', { className: 'nas-sub' }, t('activateHint'))),
-          h('input', { type: 'checkbox', role: 'switch', checked: form.activate, onChange: (e) => setForm({ ...form, activate: e.target.checked }), disabled: busy })),
         h(ErrorText, { text: validation || a.error }),
         tested ? h('div', { className: `nas-test-panel ${tested.ok ? 'ok' : 'bad'}`, role: 'status' },
           h('div', { className: 'nas-test-head' },
@@ -1095,7 +1143,7 @@ window.__ModuleLoader__.load({
       return zh ? `${Math.floor(s / 86400)} 天` : `${Math.floor(s / 86400)} days`;
     }
     const PROTOCOL_LABELS = { openai: 'OpenAI Chat', 'openai-response': 'OpenAI Responses', anthropic: 'Anthropic', gemini: 'Gemini' };
-    function ChannelCard({ channel: ch, count, busy, onEdit, onActivate, onDelete }) {
+    function ChannelCard({ channel: ch, count, busy, groupName, selected, onSelect, onEdit, onDelete, onVisibility }) {
       const t = useT(); const b = ch.balance; const q = quota(b);
       const [confirm, setConfirm] = useState(false);
       const [check, setCheck] = useState({ running: false, result: undefined });
@@ -1124,13 +1172,23 @@ window.__ModuleLoader__.load({
         : noQuota ? { tone: 'idle', icon: 'heart', tip: t('healthNoQuota') }
         : { tone: 'idle', icon: 'heart', tip: t('healthUnknown') };
       const quotaTip = [t(q.label), b?.token?.unlimited ? t('unlimited') : null, failed ? b?.message : null].filter(Boolean).join('\n');
-      const label = `${ch.name}${ch.active ? ` · ${t('activeTip')}` : ''}`;
-      return h('div', { className: `nas-ch-row ${ch.active ? 'is-active' : ''}`, role: 'listitem', 'aria-current': ch.active ? 'true' : undefined, 'aria-label': label },
-        h('span', { className: 'nas-ch-mark', 'data-tip': [familyLabel(ch.backend, t) + (ch.backend?.version ? ` ${ch.backend.version}` : ''), t(ch.active ? 'activeTip' : 'inactiveTip')].join('\n'), 'data-tip-align': 'start' },
-          h(GatewayMark, { family: ch.backend?.family, icon: ch.backend?.icon, active: ch.active })),
+      const label = ch.name;
+      // Hidden is a picker-only state: the route stays registered, so testing and editing
+      // stay available and only the model picker loses this gateway's models.
+      const hidden = Boolean(ch.hidden);
+      const nameTip = [groupName ? `${t('modelPickerGroup')}: ${groupName}` : null, t('gatewayHiddenHint')].filter(Boolean).join('\n');
+      // The row itself is the selector: the details above always describe the last one clicked.
+      const selectSelf = (e) => { if (e?.target?.closest?.('button, input, select, a, label')) return; onSelect(); };
+      return h('div', {
+        className: `nas-ch-row ${selected ? 'is-active' : ''}`, role: 'listitem', 'aria-current': selected ? 'true' : undefined, 'aria-label': label,
+        tabIndex: 0, style: { cursor: 'pointer' }, title: t('viewGatewayTip'), onClick: selectSelf,
+        onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(); } },
+      },
+        h('span', { className: 'nas-ch-mark', 'data-tip': `${familyLabel(ch.backend, t)}${ch.backend?.version ? ` ${ch.backend.version}` : ''}`, 'data-tip-align': 'start' },
+          h(GatewayMark, { family: ch.backend?.family, icon: ch.backend?.icon, active: selected })),
         h('div', { className: 'nas-ch-id' },
-          h('strong', { className: 'nas-ch-name' }, ch.name, h('span', { className: 'nas-ch-type' }, familyLabel(ch.backend, t))),
-          h('div', { className: 'nas-ch-url' }, ch.baseURL)),
+          h('strong', { className: 'nas-ch-name', title: nameTip }, ch.name, h('span', { className: 'nas-ch-type' }, familyLabel(ch.backend, t))),
+          h('div', { className: 'nas-ch-url' }, ch.baseURL, hidden && h('span', { className: 'nas-hidden-badge', 'data-tip': t('gatewayHiddenHint') }, t('gatewayHiddenBadge')))),
         h('div', { className: `nas-ch-quota ${failed ? 'bad' : ''}`, 'data-tip': quotaTip },
           h('span', { className: 'nas-ch-amount' }, failed ? t('failed') : q.value),
           h('span', { className: 'nas-ch-quota-label' }, failed ? t('balanceUnavailable') : t(q.label))),
@@ -1142,10 +1200,8 @@ window.__ModuleLoader__.load({
             h(Button, { small: true, tone: 'danger', onClick: onDelete, disabled: busy }, t('remove')),
             h(Button, { small: true, tone: 'ghost', onClick: () => setConfirm(false) }, t('cancel')))
           : h('div', { className: 'nas-ch-actions' },
-            ch.active
-              ? h('span', { className: 'nas-ch-slot', 'aria-hidden': true })
-              : h(Button, { small: true, className: 'nas-icon-btn', icon: 'power', tip: t('activateTip'), tipAlign: 'end', onClick: onActivate, disabled: busy }),
             h(Button, { small: true, className: 'nas-icon-btn', icon: check.running ? 'refresh' : 'gauge', 'aria-busy': check.running, tip: t('channelTestTip'), tipAlign: 'end', onClick: runTest, disabled: check.running || !ch.keyConfigured }),
+            h(Button, { small: true, className: 'nas-icon-btn', icon: hidden ? 'eye' : 'eyeOff', tip: t(hidden ? 'showGatewayTip' : 'hideGatewayTip'), tipAlign: 'end', onClick: onVisibility, disabled: busy }),
             h(Button, { small: true, className: 'nas-icon-btn', icon: 'edit', tip: t('editChannelTip'), tipAlign: 'end', onClick: onEdit, disabled: busy }),
             h(Button, { small: true, className: 'nas-icon-btn', icon: 'trash', tip: t('removeChannelTip'), tipAlign: 'end', disabled: busy, onClick: () => setConfirm(true) })));
     }
@@ -1409,27 +1465,24 @@ window.__ModuleLoader__.load({
       h(ErrorText, { text: invalid || a.error }));
     }
     /**
-     * Model list of one channel. The active channel's list rides on the shared
-     * snapshot; any other channel is read on demand, so every gateway's list is
-     * viewed and edited on its own.
+     * Model list of one channel, read on demand. The snapshot carries no catalog, so
+     * switching what you inspect never fetches every gateway, and a periodic refresh
+     * never costs a catalog read.
      */
     function useChannelModels(state, channelId) {
-      const isActive = channelId === state.activeChannel;
-      const [other, setOther] = useState({ id: null, data: null, error: '', loading: false });
-      // Re-read when the selection or the saved configuration (revision) changes.
+      const [view, setView] = useState({ id: null, data: null, error: '', loading: false });
       useEffect(() => {
-        if (isActive) return undefined;
+        if (!channelId) return undefined;
         let alive = true;
-        setOther((o) => ({ id: channelId, data: o.id === channelId ? o.data : null, error: '', loading: true }));
+        setView((o) => ({ id: channelId, data: o.id === channelId ? o.data : null, error: '', loading: true }));
         api('models/list', { channelId })
-          .then((data) => { if (alive) setOther({ id: channelId, data, error: '', loading: false }); })
-          .catch((e) => { if (alive) setOther({ id: channelId, data: null, error: e.message, loading: false }); });
+          .then((data) => { if (alive) setView({ id: channelId, data, error: '', loading: false }); })
+          .catch((e) => { if (alive) setView({ id: channelId, data: null, error: e.message, loading: false }); });
         return () => { alive = false; };
-      }, [channelId, isActive, state.revision]);
-      if (isActive) return { models: state.models, loading: false, error: '' };
-      return { models: other.id === channelId ? other.data : null, loading: other.loading, error: other.id === channelId ? other.error : '' };
+      }, [channelId, state.revision]);
+      return { models: view.id === channelId ? view.data : null, loading: view.id === channelId ? view.loading : Boolean(channelId), error: view.id === channelId ? view.error : '' };
     }
-    function ModelsPanel({ state, channel, onEdit, notify }) {
+    function ModelsPanel({ state, channel, view: provided, onEdit, notify }) {
       const t = useT(); useTests();
       const [search, setSearch] = useState(''); const [kind, setKind] = useState('all');
       const [dialog, setDialogState] = useState(); const [undo, setUndo] = useState(); const a = useAction();
@@ -1444,7 +1497,7 @@ window.__ModuleLoader__.load({
         await store.mutate('models/hidden', { revision: store.state.revision, channelId: channel.id, ids, hidden });
       });
       const setDialog = (value) => setDialogState(value ? { ...value, channel: structuredClone(channel), revision: state.revision } : undefined);
-      const view = useChannelModels(state, channel.id);
+      const view = provided ?? useChannelModels(state, channel.id);
       const models = view.models?.entries || [];
       const shown = models.filter((m) => (kind === 'all' || m.kind === kind) && `${m.id} ${m.name} ${m.vendor || ''}`.toLowerCase().includes(search.toLowerCase()));
       const kinds = ['all', ...new Set(models.map((m) => m.kind))];
@@ -1559,7 +1612,11 @@ window.__ModuleLoader__.load({
     function SettingsPage() {
       const t = useT(); const { state, error, busy } = useProvider(); const a = useAction();
       const [tab, setTab] = useState('channels'); const [editor, setEditor] = useState(); const [modelEditor, setModelEditor] = useState(); const [notice, setNotice] = useState('');
+      // Viewer selection lives above every early return: a hook must run on each render.
       const [modelChannelId, setModelChannelId] = useState(null);
+      const channels = state?.channels || [];
+      const viewChannel = channels.find((c) => c.id === modelChannelId) || channels[0] || null;
+      const view = useChannelModels(state, viewChannel?.id ?? null);
       const notify = (key) => { setNotice(t(key)); setEditor(undefined); setModelEditor(undefined); };
       useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 5000); return () => clearTimeout(timer); }, [notice]);
       const sync = () => a.run(() => store.mutate('refresh', {}));
@@ -1573,55 +1630,68 @@ window.__ModuleLoader__.load({
         detail: error ? `${error}\n${t('loadFailedHint')}` : null,
         action: error ? h(Button, { icon: 'refresh', onClick: () => store.load() }, t('retry')) : null,
       }));
-      const channels = state.channels || []; const active = channels.find((c) => c.id === state.activeChannel) || channels[0];
-      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.6.1' }, h(Styles), header,
+      if (!channels.length) return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.7.0' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(Empty, { icon: 'gateway', title: t('noGateways'), detail: t('noGatewaysHint'),
           action: h(Button, { icon: 'plus', tone: 'primary', onClick: () => setEditor({ channel: null, revision: state.revision }) }, t('add')) }),
         editor && h(ChannelEditor, { ...editor, onClose: () => setEditor(undefined), onSaved: () => notify('saved') }));
-      const b = active?.balance || state.balance; const q = quota(b); const entries = state.models?.entries || [];
-      // Which channel the models tab shows. Defaults to the active one; falls back if that channel is removed.
-      const modelChannel = channels.find((c) => c.id === modelChannelId) || active;
+      // One viewer selection for the whole page: the details summary and the model list
+      // always describe the same gateway. Defaults to the first one; nothing about
+      // availability depends on it, because every gateway is usable at once.
+      const entries = view.models?.entries || [];
+      const b = viewChannel.balance; const q = quota(b);
+      const chat = entries.filter((e) => e.kind === 'chat' && !e.hidden);
+      const protocols = {};
+      for (const e of chat) for (const p of (e.endpointTypes?.length ? e.endpointTypes : ['openai'])) protocols[p] = (protocols[p] ?? 0) + 1;
+      const facts = { protocols, chatCount: chat.length, knownCount: chat.filter((e) => e.source?.modelsDev).length, listMode: viewChannel.listMode ?? (viewChannel.enabledCount != null ? 'list' : 'auto'), overrideCount: viewChannel.overrideCount };
+      // Each gateway registers its own provider route; the picker titles each group with it.
+      const routeGroups = state.route?.routes || [];
+      const routeSummary = () => {
+        if (!routeGroups.length) return state.route?.route || 'ai-gateway';
+        const named = routeGroups.map((r) => `${r.name || r.route}${r.hidden ? ` (${t('gatewayHiddenBadge')})` : ''}`);
+        return named.length <= 3 ? named.join(' / ') : `${named.slice(0, 3).join(' / ')} +${named.length - 3}`;
+      };
+      const groupNameOf = (ch) => routeGroups.find((g) => (ch.route && g.route === ch.route) || g.channelId === ch.id)?.name;
       const count = (kind) => entries.filter((e) => e.kind === kind).length;
-      const operate = (path, ch, key) => a.run(async () => { await store.mutate(path, { id: ch.id, revision: state.revision }); notify(key); });
-      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.6.1' }, h(Styles), header,
+      const operate = (path, ch, key, extra) => a.run(async () => { await store.mutate(path, { revision: state.revision, id: ch.id, ...extra }); notify(key); });
+      return h('div', { className: 'nas nas-page', 'data-ai-gateway-version': '0.7.0' }, h(Styles), header,
         notice && h('div', { className: 'nas-feedback', role: 'status' }, h(Icon, { name: 'check', size: 14 }), notice),
         h(ErrorText, { text: a.error || error }),
         h('div', { className: 'nas-summary' },
-          h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t('currentChannel')), h('div', { className: 'nas-stat-value name' }, active?.name || '—'), h('div', { className: 'nas-stat-foot' }, active?.baseURL),
-),
+          h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t('currentChannel')), h('div', { className: 'nas-stat-value name' }, viewChannel.name || '—'), h('div', { className: 'nas-stat-foot' }, viewChannel.baseURL)),
           h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t(q.label)), h('div', { className: 'nas-stat-value' }, q.value), h('div', { className: 'nas-stat-foot' }, b?.token?.unlimited ? t('unlimited') : b?.token?.name || '—')),
-          h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t('totalModels')), h('div', { className: 'nas-stat-value' }, entries.length), h('div', { className: 'nas-stat-foot' }, `${t('chat')} ${count('chat')} · ${t('image')} ${count('image')} · ${t('video')} ${count('video')}`)),
-          active && h(GatewayFacts, { channel: active, facts: state.facts })),
+          h('div', { className: 'nas-stat' }, h('div', { className: 'nas-stat-label' }, t('totalModels')), h('div', { className: 'nas-stat-value' }, view.loading && !entries.length ? '—' : entries.length), h('div', { className: 'nas-stat-foot' }, `${t('chat')} ${count('chat')} · ${t('image')} ${count('image')} · ${t('video')} ${count('video')}`)),
+          h(GatewayFacts, { channel: viewChannel, facts })),
         h('div', { className: 'nas-tabs', role: 'tablist', 'aria-label': t('nav') }, ['channels', 'models'].map((k) => h('button', {
           key: k, type: 'button', className: `nas-tab ${tab === k ? 'selected' : ''}`, id: `nas-tab-${k}`, role: 'tab', 'aria-selected': tab === k, 'aria-controls': `nas-panel-${k}`, tabIndex: tab === k ? 0 : -1,
           onClick: () => setTab(k), onKeyDown: (e) => { if (['ArrowLeft', 'ArrowRight'].includes(e.key)) { e.preventDefault(); const tabs = ['channels', 'models']; const next = tabs[(tabs.indexOf(k) + 1) % 2]; setTab(next); document.getElementById(`nas-tab-${next}`)?.focus(); } },
-        }, h(Icon, { name: k === 'channels' ? 'gateway' : k === 'models' ? 'grid' : 'image', size: 14 }), t(k), h('span', { className: 'nas-count' }, k === 'channels' ? channels.length : entries.length)))),
+        }, h(Icon, { name: k === 'channels' ? 'gateway' : k === 'models' ? 'grid' : 'image', size: 14 }), t(k), h('span', { className: 'nas-count' }, k === 'channels' ? channels.length : (entries.length || ''))))),
         h('div', { role: 'tabpanel', id: `nas-panel-${tab}`, 'aria-labelledby': `nas-tab-${tab}` },
           tab === 'channels' && h(React.Fragment, null,
             h('div', { className: 'nas-ch-wrap' }, h('div', { className: 'nas-ch-list', role: 'list', 'aria-label': t('channels') }, channels.map((c) => h(ChannelCard, {
-              key: c.id, channel: c, count: channels.length, busy,
+              key: c.id, channel: c, count: channels.length, busy, groupName: groupNameOf(c),
+              selected: c.id === viewChannel.id, onSelect: () => setModelChannelId(c.id),
               onEdit: () => setEditor({ channel: c, revision: state.revision }),
-              onActivate: () => operate('channel/activate', c, 'activated'), onDelete: () => operate('channel/delete', c, 'removed'),
+              onDelete: () => operate('channel/delete', c, 'removed'),
+              onVisibility: () => operate('channel/visibility', c, c.hidden ? 'gatewayShown' : 'gatewayHidden', { hidden: !c.hidden }),
             })))),
-            h('div', { className: 'nas-note', title: t('activateHint') }, h(Icon, { name: 'info', size: 13 }), t('channelHint'))),
-          tab === 'models' && modelChannel && h(React.Fragment, null,
+            h('div', { className: 'nas-note' }, h(Icon, { name: 'info', size: 13 }), `${t('channelHint')} ${t('gatewayViewHint')}`)),
+          tab === 'models' && h(React.Fragment, null,
             h('div', { className: 'nas-model-channels', role: 'tablist', 'aria-label': t('modelsOfChannel') },
               channels.map((c) => h('button', {
-                key: c.id, type: 'button', role: 'tab', 'aria-selected': c.id === modelChannel.id,
-                className: `nas-model-channel ${c.id === modelChannel.id ? 'selected' : ''} ${c.active ? 'is-active' : ''}`,
-                'data-tip': c.active ? `${c.name} · ${t('activeTip')}` : c.name, 'data-tip-align': 'start',
-                onClick: () => setModelChannelId(c.id),
-              }, h(GatewayMark, { family: c.backend?.family, icon: c.backend?.icon, active: c.active, size: 13 }), h('span', null, c.name),
+                key: c.id, type: 'button', role: 'tab', 'aria-selected': c.id === viewChannel.id,
+                className: `nas-model-channel ${c.id === viewChannel.id ? 'selected' : ''}`,
+                title: c.name, onClick: () => setModelChannelId(c.id),
+              }, h(GatewayMark, { family: c.backend?.family, icon: c.backend?.icon, active: c.id === viewChannel.id, size: 13 }), h('span', null, c.name),
+              c.hidden && h(Icon, { name: 'eyeOff', size: 11 }),
               c.enabledCount != null && h('span', { className: 'nas-count' }, c.enabledCount)))),
-            !modelChannel.active && h('div', { className: 'nas-mode warn' }, h(Icon, { name: 'info', size: 13 }), t('viewingInactive')),
             h(ModelsPanel, {
-              key: modelChannel.id, state, channel: modelChannel, notify: (message) => setNotice(message),
-              onEdit: (model, siblings) => setModelEditor({ model, channel: modelChannel, revision: state.revision, siblings }),
+              key: viewChannel.id, state, view, channel: viewChannel, notify: (message) => setNotice(message),
+              onEdit: (model, siblings) => setModelEditor({ model, channel: viewChannel, revision: state.revision, siblings }),
             })),
         ),
         state.errors && Object.keys(state.errors).length > 0 && h('details', { style: { marginTop: 18 } }, h('summary', { className: 'nas-sub', style: { cursor: 'pointer' } }, t('issues')), Object.entries(state.errors).map(([key, v]) => h('div', { key, className: 'nas-note' }, `${key}: ${v.message}`))),
-        h('footer', { className: 'nas-settings-foot' }, h('span', null, `${t('route')}: ${state.route?.route || 'ai-gateway'} · ${state.modelsDev?.loaded ? `models.dev ${t('cached')}` : t('originNone')}`), h('span', null, h(Icon, { name: 'key', size: 11 }), ` ${t('privacy')}`)),
+        h('footer', { className: 'nas-settings-foot' }, h('span', null, `${t('route')}: ${routeSummary()} · ${state.modelsDev?.loaded ? `models.dev ${t('cached')}` : t('originNone')}`), h('span', null, h(Icon, { name: 'key', size: 11 }), ` ${t('privacy')}`)),
         editor && h(ChannelEditor, { ...editor, onClose: () => setEditor(undefined), onSaved: () => notify('saved') }),
         modelEditor && h(ModelEditor, { ...modelEditor, onClose: () => setModelEditor(undefined), onSaved: (reset) => notify(reset ? 'modelReset' : 'modelSaved') }));
     }

@@ -125,22 +125,24 @@ test('a stale revision is rejected before any request or write', async () => {
   } finally { await gw.close(); }
 });
 
-test('activate and delete; deleting the last gateway leaves an empty, valid config', async () => {
+test('delete; deleting the last gateway leaves an empty, valid config', async () => {
   const gw = await gateway();
   const h = host();
   try {
     const a = await h.service.run('save', { revision: h.revision, name: 'A', baseURL: gw.base, apiKey: KEY });
-    const b = await h.service.run('save', { revision: h.revision, name: 'B', baseURL: `${gw.base}/`, apiKey: KEY });
-    assert.equal(resolveChannels(h.value).active.id, a.channelId, 'a second gateway does not steal the active slot');
-    await h.service.run('activate', { revision: h.revision, id: b.channelId });
-    assert.equal(resolveChannels(h.value).active.id, b.channelId);
-    await h.service.run('delete', { revision: h.revision, id: b.channelId });
-    assert.equal(resolveChannels(h.value).active.id, a.channelId, 'the remaining gateway takes over');
+    await h.service.run('save', { revision: h.revision, name: 'B', baseURL: `${gw.base}/`, apiKey: KEY });
+    // There is no "activate" action any more: every saved gateway is usable at once.
+    await assert.rejects(h.service.run('activate', { revision: h.revision, id: a.channelId }), { status: 400 });
+    assert.equal(h.value.activeChannel, undefined, 'no active-channel state is written');
+    assert.equal(resolveChannels(h.value).list.length, 2);
     await h.service.run('delete', { revision: h.revision, id: a.channelId });
+    assert.equal(resolveChannels(h.value).list.length, 1);
+    const remaining = resolveChannels(h.value).list[0];
+    assert.equal(remaining.name, 'B');
+    await h.service.run('delete', { revision: h.revision, id: remaining.id });
     const { list, active } = resolveChannels(h.value);
     assert.deepEqual(list, []);
     assert.equal(active, undefined);
-    assert.equal(h.value.activeChannel, undefined);
   } finally { await gw.close(); }
 });
 

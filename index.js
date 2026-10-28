@@ -23,7 +23,7 @@ import { Catalog, chatModels, upstreamModelOf, DEFAULT_CONTEXT_WINDOW, DEFAULT_M
 import { ModelsDev } from './lib/modelsdev.js';
 import { fingerprint, redact } from './lib/util.js';
 import { probe, identify, readQuota, gatewayRoot } from './lib/probe.js';
-import { ChannelService, resolveChannels } from './lib/channels.js';
+import { ChannelService, resolveChannels, validateBaseURL } from './lib/channels.js';
 import { SiteFactsCache } from './lib/site-cache.js';
 import { ModelTester } from './lib/model-test.js';
 import { SERVICE_TIERS, composerSpeedTiers } from './lib/service-tiers.js';
@@ -33,7 +33,7 @@ export const name = 'ai-gateway';
 export const inject = ['llm'];
 
 const ROUTE_PREFIX = '/ai-gateway/api/';
-const VERSION = '0.6.1';
+const VERSION = '0.7.0';
 const ENDPOINT_TYPES = ['openai', 'anthropic', 'openai-response', 'gemini'];
 const KINDS = ['chat', 'image', 'video', 'audio', 'embedding', 'other'];
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
@@ -76,6 +76,8 @@ const Channel = z.object({
   name: z.string().description('Display name.'),
   baseURL: z.string().required().description('Gateway address, with or without /v1.'),
   apiKeyEnv: z.string().role('credential-ref').description('Credential holding this gateway\'s token.'),
+  providerId: z.string().description('Model-picker route for this gateway. Assigned once; changing it orphans sessions that used the old route.'),
+  hidden: z.boolean().description('Keep the gateway configured but show none of its models in the model picker.'),
   headers: z.dict(z.string()).description('Extra HTTP headers for this gateway only.'),
   backend: Backend.description('What the probe found when this gateway was saved.'),
   models: z.dict(ModelOverride).description('Per-model overrides keyed by model id.'),
@@ -83,9 +85,9 @@ const Channel = z.object({
 });
 
 export const Config = z.object({
-  channels: z.array(Channel).default([]).description('Saved gateways. Exactly one is active at a time.'),
-  activeChannel: z.string().description('Id of the active gateway; the first one when unset.'),
-  providerId: z.string().default('ai-gateway').description('Provider route id in the model picker. Changing it orphans sessions that use the old id.'),
+  channels: z.array(Channel).default([]).description('Saved gateways. Each one is its own group in the model picker.'),
+  activeChannel: z.string().description('Legacy, ignored: every saved gateway is registered and usable at once.'),
+  providerId: z.string().default('ai-gateway').description('Legacy route id for the first gateway. Later gateways get their own derived route.'),
   displayName: z.string().default('AI Gateway').description('Provider name shown in the model picker.'),
   endpointPriority: z.array(z.union(ENDPOINT_TYPES)).default([...DEFAULT_ENDPOINT_PRIORITY]).description('Preferred wire protocol when a model supports several.'),
   defaultContextWindow: z.number().step(1).min(1).default(DEFAULT_CONTEXT_WINDOW).description('Context window when models.dev has no data for a model.'),
@@ -138,8 +140,10 @@ export function apply(ctx, config) {
     return {
       channelId: ch.id,
       channelName: ch.name,
-      providerId: raw.providerId || 'ai-gateway',
-      displayName: raw.displayName || 'AI Gateway',
+      providerId: ch.providerId || raw.providerId || 'ai-gateway',
+      // The group heading in the model picker is this gateway's own name.
+      displayName: ch.name || raw.displayName || 'AI Gateway',
+      hidden: ch.hidden === true,
       baseURL: ch.baseURL,
       apiKeyRef: credentialRef(ch.apiKeyEnv),
       overrides,
@@ -211,8 +215,8 @@ export function apply(ctx, config) {
 
   const adapter = new GatewayAdapter({
     sessionTier: (sessionId, channelId, modelId) => sessionTiers.get(sessionId, channelId, modelId),
-    connection: () => connFor(requireActive()),
-    capture,
+    connection: (provider) => connectionFor(provider),
+    capture: (provider) => captureRoute(provider),
     reportError,
     logger: ctx.logger,
     piAuth: undefined,
@@ -220,30 +224,44 @@ export function apply(ctx, config) {
     resolveImageAccess: (attachments, ref) => resolveImageAttachmentAccess(attachments, (hostPath) => ctx.get('fs')?.processPathFromHostPath(hostPath), ref),
   });
 
-  // ------------------------------------------------------------ provider route
-  // Present only while a gateway is saved; withdrawn when the last one is removed.
+  // ------------------------------------------------------------ provider routes
+  // One picker route per gateway: every gateway becomes its own group, so two gateways
+  // serving the same model id stay distinct, and hiding one leaves the others untouched.
+  const routeOfChannel = (ch) => connFor(ch).providerId;
+  const channelForRoute = (provider) => channels().list.find((c) => routeOfChannel(c) === provider);
+  const connectionFor = (provider) => {
+    const ch = channelForRoute(provider);
+    return connFor(ch ?? requireActive());
+  };
+  const captureRoute = (provider) => {
+    const ch = channelForRoute(provider);
+    if (!ch) throw new LlmError(`ai-gateway: no gateway owns the provider route "${provider}"`, 'UNKNOWN_PROVIDER');
+    return capture(ch.id);
+  };
+
   let registration;
-  let registeredRoute;
+  let registeredRoutes = [];
   let directory;
   let directoryKey;
-  const routeState = { status: 'idle', route: null, error: null };
+  const routeState = { status: 'idle', routes: [], error: null };
   const ensureRegistration = () => {
-    const { active } = channels();
-    if (!active) {
-      registration?.(); registration = undefined; registeredRoute = undefined;
+    const { list } = channels();
+    const conns = list.map((ch) => connFor(ch));
+    const routes = conns.map((conn) => conn.providerId);
+    if (!routes.length) {
+      registration?.(); registration = undefined; registeredRoutes = [];
       directory?.(); directory = undefined; directoryKey = undefined;
-      Object.assign(routeState, { status: 'idle', route: null, error: null });
+      Object.assign(routeState, { status: 'idle', routes: [], error: null });
       return;
     }
-    const conn = connFor(active);
-    const entries = [{
+    const entries = conns.map((conn) => ({
       provider: conn.providerId,
       displayName: conn.displayName,
       settingsNs,
       settingsPath: [],
       declared: true,
       defaultBaseURL: gatewayRoot(conn.baseURL),
-    }];
+    }));
     const key = JSON.stringify(entries);
     try {
       if (directoryKey !== key) {
@@ -253,24 +271,24 @@ export function apply(ctx, config) {
     } catch (error) {
       routeState.error = `directory: ${error.message}`;
     }
-    if (registeredRoute === conn.providerId) return;
+    if (registeredRoutes.length === routes.length && registeredRoutes.every((r, i) => r === routes[i])) return;
     try {
-      if (registration) registration.replace([conn.providerId]); else registration = ctx.llm.registerAdapter([conn.providerId], adapter);
-      registeredRoute = conn.providerId;
-      Object.assign(routeState, { status: 'registered', route: conn.providerId, error: null });
+      if (registration) registration.replace(routes); else registration = ctx.llm.registerAdapter(routes, adapter);
+      registeredRoutes = routes;
+      Object.assign(routeState, { status: 'registered', routes: conns.map((conn) => ({ route: conn.providerId, name: conn.displayName, channelId: conn.channelId, hidden: conn.hidden })), error: null });
     } catch (error) {
-      Object.assign(routeState, { status: 'waiting', route: conn.providerId, error: String(error?.message ?? error) });
-      ctx.logger.warn(`ai-gateway: provider route "${conn.providerId}" is not available yet (${error.code ?? error.message}); will retry when it is released`);
+      Object.assign(routeState, { status: 'waiting', error: String(error?.message ?? error) });
+      ctx.logger.warn(`ai-gateway: provider routes are not all available yet (${error.code ?? error.message}); will retry when they are released`);
     }
   };
   ensureRegistration();
   ctx.effect(() => () => {
-    registration?.(); registration = undefined;
+    registration?.(); registration = undefined; registeredRoutes = [];
     directory?.(); directory = undefined;
   });
   ctx.on('llm/adapters-updated', () => {
-    const { active } = channels();
-    if (active && registeredRoute !== connFor(active).providerId) ensureRegistration();
+    const routes = channels().list.map(routeOfChannel);
+    if (routes.length !== registeredRoutes.length || routes.some((r, i) => r !== registeredRoutes[i])) ensureRegistration();
   });
 
   // ------------------------------------------------------------ quota
@@ -406,6 +424,30 @@ export function apply(ctx, config) {
   };
 
   // ------------------------------------------------------------ config writes
+  // Address-only inspection: public endpoints only, no token and no model call, so the
+  // editor can preview a gateway's icon, name and type before any credential is entered.
+  const identifyGateway = async ({ baseURL }) => {
+    const root = gatewayRoot(validateBaseURL(baseURL));
+    const started = Date.now();
+    const found = await identify({ baseURL: root, headers: {} });
+    const value = { ...found, family: found.family ?? 'unknown' };
+    siteFacts.set(originOf(root), { ...(siteFacts.get(originOf(root)) ?? {}), ...value });
+    identities.set(root, { at: Date.now(), value });
+    return {
+      ok: value.reachable !== false,
+      baseURL: root,
+      latencyMs: Date.now() - started,
+      family: value.family,
+      familyName: value.name ?? null,
+      version: value.version ?? null,
+      siteTitle: value.title ?? null,
+      suggestedName: value.suggestedName ?? null,
+      icon: value.icon?.dataUrl ?? null,
+      info: value.info ?? {},
+      evidence: value.evidence ?? null,
+    };
+  };
+
   const channelService = new ChannelService({
     ns: settingsNs,
     current,
@@ -471,6 +513,13 @@ export function apply(ctx, config) {
   });
 
   // ------------------------------------------------------------ snapshot
+  const withDeadline = async (p, ms, message) => {
+    let timer;
+    try {
+      return await Promise.race([p, new Promise((_, reject) => { timer = setTimeout(() => reject(Object.assign(new Error(message), { status: 504 })), ms); })]);
+    } finally { clearTimeout(timer); }
+  };
+
   const withTimeout = async (p, ms, fallback) => {
     let timer;
     try { return await Promise.race([p, new Promise((r) => { timer = setTimeout(() => r(fallback), ms); })]); }
@@ -510,10 +559,10 @@ export function apply(ctx, config) {
    */
   const sessionTierView = async ({ sessionId, modelId, provider } = {}) => {
     if (typeof sessionId !== 'string' || !sessionId || typeof modelId !== 'string' || !modelId) throw Object.assign(new Error('sessionId and modelId are required'), { status: 400 });
-    // Only this plugin's own route is ours to annotate.
-    if (provider !== undefined && provider !== (current().providerId || 'ai-gateway')) return { available: false, reason: 'not an AI Gateway model' };
-    const active = channels().active;
-    if (!active) return { available: false, reason: 'no gateway' };
+    // Only this plugin's own routes are ours to annotate.
+    const active = provider === undefined ? channels().active : channelForRoute(provider);
+    if (!active) return { available: false, reason: 'not an AI Gateway model' };
+    if (active.hidden === true) return { available: false, reason: 'this gateway is hidden from the model picker' };
     const catalog = await catalogFor(active, {}, connFor(active));
     const entry = catalog.entries.find((e) => e.id === modelId && e.kind === 'chat');
     if (!entry || !entry.speedTiers?.compatible) return { available: false, reason: 'not an OpenAI-protocol chat model on this gateway' };
@@ -537,51 +586,30 @@ export function apply(ctx, config) {
   const snapshot = async ({ force = false } = {}) => {
     const state = channels();
     const raw = current();
-    let models = null;
-    if (state.active) {
-      try {
-        models = await withTimeout(modelsOf(state.active, { force }), 15_000, null);
-      } catch (error) {
-        reportError('catalog', error);
-      }
-    }
+    // No catalog is read here: the page loads one gateway's model list on demand, so a
+    // periodic refresh never fetches every gateway just to render the channel list.
     const list = await Promise.all(state.list.map(async (c) => ({
       id: c.id,
       name: c.name,
+      route: routeOfChannel(c),
+      hidden: c.hidden === true,
       baseURL: gatewayRoot(c.baseURL),
       keyName: c.apiKeyEnv,
       keyConfigured: await keyConfigured(c),
       backend: backendView(c, await withTimeout(identityOf(c, { force }), 5_000, identities.get(gatewayRoot(c.baseURL))?.value)),
       overrideCount: Object.keys(c.models ?? {}).length,
       enabledCount: Array.isArray(c.enabledModels) ? c.enabledModels.length : null,
-      active: c.id === state.active?.id,
-      balance: await withTimeout(quotaOf(c, { force }), 6_000, { status: 'idle' }),
+      listMode: Array.isArray(c.enabledModels) ? 'list' : 'auto',
+      balance: c.hidden === true ? { status: 'none' } : await withTimeout(quotaOf(c, { force }), 6_000, { status: 'idle' }),
     })));
-    const active = list.find((c) => c.active);
-    const entries = models?.entries ?? [];
-    const chat = entries.filter((e) => e.kind === 'chat' && !e.hidden);
-    const protocols = {};
-    for (const e of chat) for (const p of (e.endpointTypes?.length ? e.endpointTypes : ['openai'])) protocols[p] = (protocols[p] ?? 0) + 1;
-    const facts = active ? {
-      protocols,
-      chatCount: chat.length,
-      knownCount: chat.filter((e) => e.source?.modelsDev).length,
-      listMode: Array.isArray(state.active?.enabledModels) ? 'list' : 'auto',
-      overrideCount: active.overrideCount,
-    } : null;
     return {
       plugin: 'dsh-ai-gateway-provider',
       version: VERSION,
       revision: channelService.revision(),
       channels: list,
-      activeChannel: state.active?.id ?? null,
-      listMode: Array.isArray(state.active?.enabledModels) ? 'list' : 'auto',
       route: { ...routeState, displayName: raw.displayName || 'AI Gateway' },
       defaults: { contextWindow: raw.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW, maxTokens: raw.defaultMaxTokens ?? DEFAULT_MAX_TOKENS },
-      balance: active?.balance ?? { status: 'none' },
-      facts,
       modelsDev: modelsDev.status(),
-      models,
       errors: Object.fromEntries(errors),
     };
   };
@@ -595,21 +623,26 @@ export function apply(ctx, config) {
       return snapshot({ force: true });
     },
     ...Object.fromEntries([
-      ['channel/activate', 'activate'], ['channel/test', 'test'], ['channel/save', 'save'],
-      ['channel/delete', 'delete'], ['model/override', 'model_override'], ['models/set', 'models_set'],
+['channel/test', 'test'], ['channel/save', 'save'],
+      ['channel/delete', 'delete'], ['channel/visibility', 'visibility'],
+      ['model/override', 'model_override'], ['models/set', 'models_set'],
       ['models/hidden', 'models_hidden'],
     ].map(([route, action]) => [`POST ${route}`, async (body) => {
       const result = await channelService.run(action, body);
       return action === 'test' ? result : snapshot();
     }])),
+    'POST channel/identify': async (body) => {
+      if (typeof body?.baseURL !== 'string' || !body.baseURL.trim()) throw Object.assign(new Error('baseURL is required'), { status: 400 });
+      return withDeadline(identifyGateway({ baseURL: body.baseURL }), 12_000, 'the gateway did not answer in time');
+    },
     'POST models/discover': async (body) => discoverModels(body),
     'POST models/list': async (body) => {
       if (typeof body?.channelId !== 'string' || !body.channelId) throw Object.assign(new Error('channelId is required'), { status: 400 });
       return modelsOf(channelById(body.channelId), { force: body.force === true });
     },
     'POST model/test': async (body) => tester.run(body),
-    // Composer speed control: what the active gateway offers for one model, and this
-    // conversation's choice. Only the active gateway serves conversations.
+    // Composer speed control: what the session's own gateway offers for one model, plus
+    // this conversation's choice.
     'POST session/tier': async (body) => sessionTierView(body),
     'POST session/tier/set': async (body) => {
       const { sessionId, modelId, tier, provider, channelId } = body ?? {};

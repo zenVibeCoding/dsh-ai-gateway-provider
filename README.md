@@ -20,14 +20,16 @@ Most providers are the same three endpoints with different names on the box. Ins
 dsh-ai-gateway-provider
 ```
 
-Requires DSH ≥ 0.2.1-rc.1 and < 0.3.0. This README describes local **0.6.0 (not yet published)**; npm `latest` is **0.5.2**. Existing screenshots are illustrative and may predate the new tier editor and composer controls.
+Requires DSH ≥ 0.2.1-rc.1 and < 0.3.0. This README describes **0.7.0**; the version npm actually serves is whatever `npm view dsh-ai-gateway-provider version` reports (0.6.0 when this was written), and that result is the one to trust. Existing screenshots are illustrative and may predate the current editor.
 
 ## What it does
 
 - **Probe before saving.** A gateway is written only after it lists its models with the address and token you entered. A wrong URL or a revoked token is refused at that moment, not on the first message.
+- **Several gateways at once.** Every saved gateway gets its own provider route and stays usable; the chat model picker groups them by gateway name, so two gateways serving the same model id never collide.
 - **Model management per gateway.** Fetch the gateway's list, add a model it does not list, edit any model's name, upstream mapping, context window, output cap, input modalities, reasoning levels and wire protocol, and hide what you do not want.
 - **Grouped model table.** Models are grouped by vendor — `devin/claude-opus-5` and `claude-opus-5-5` sit together under Anthropic — with a per-group "tested / working" count. Groups collapse, and the grouping can be switched off.
 - **Hide models.** Hide one model, or a whole vendor group, from the chat picker without removing it; Hidden models stay in the list, greyed out, so clicking again unhides them. Hiding never turns an automatic gateway into a fixed list.
+- **Shelve a gateway.** The eye button on a gateway card hides that one gateway from the conversation picker while its address, token, model settings and history resolution stay intact.
 - **Model tests.** Test one model or a batch: one tiny request each, bounded output, errors classified (no upstream channel, invalid token, rate limited, timed out).
 - **Quota where it exists, silence where it does not.** New API, LiteLLM and one-api-family backends report quota; every other gateway simply shows no quota instead of an error.
 - **The gateway's own identity.** The channel shows the site's favicon when it has one, its declared name (page title, then the backend's own name), its version, chat protocols and public facts. Unknown gateways fall back to a neutral icon.
@@ -46,6 +48,43 @@ The plugin never needs to recognise a vendor — recognition only decides the ic
 | Anything else that is OpenAI-compatible | `GET /v1/models` answering | none |
 
 Wire protocols per model: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Gemini. The gateway's `supported_endpoint_types` decides; the model editor can override.
+
+## Several gateways, one picker
+
+Each saved gateway is registered as its own provider route, so every gateway is usable at the same time — there is nothing to switch between. The model picker groups models by gateway, and the group heading is the gateway's name: two gateways serving the same model id appear as separate rows instead of one shadowing the other.
+
+Routes are assigned once and persisted with the gateway list, so editing or deleting one gateway never shifts another's route. The first gateway keeps the legacy route id `ai-gateway` and later gateways derive their own (`ai-gateway-<slug>`), which is why conversations recorded before 0.7.0 still resolve to the gateway they used.
+
+New conversations choose a model like any other provider; after that each conversation remembers its own choice.
+
+## Hiding a gateway
+
+The eye button on a gateway card hides that gateway from the conversation model picker. Hiding is reversible and local to the picker: the address, token, per-model settings and history resolution all stay, and the gateway is not asked for quota while hidden. Everything else keeps working — test connection, model tests, model editing and the capability page. Press the same button to bring its models back.
+
+Hiding is not deletion: use the card's delete action when the configuration itself should go.
+
+## Viewing a gateway
+
+There is no "active" gateway to select. The old `activeChannel` value in the config is ignored, and the page no longer has an activate action: every saved gateway is always registered and always usable in chat.
+
+Clicking a row in the gateway list is a viewing action only. It changes which gateway the detail summary and the **Model capabilities** page describe, and nothing else — chat availability is decided per conversation by the model you pick, not by the row you last clicked.
+
+## Add or edit a gateway
+
+![Add gateway](docs/screenshots/add.png)
+
+1. Settings → AI Gateway → **Add gateway**. The address field is focused for a new gateway.
+2. Once the address is a valid `http(s)` URL, a **Fetch info** button appears inline in the address field. It reads public endpoints only — `/api/status`, the site's home page and its favicon: no token is read or sent, and no model is called. It reports the gateway type, its version, the site title, a suggested name and the icon.
+3. The suggested name is filled in only while the name field is empty; a name you typed is never overwritten.
+4. Enter the token and press **Test connection** to see the model counts, then Save.
+
+Saving still probes the gateway with the real token; the fetch-info button is a preview, not the save check.
+
+Tokens live in the DSH credential store — never in the config, never returned to the page.
+
+## Performance
+
+Opening the settings page reads no model catalog. The page snapshot carries the gateway list, site identities and quota instead of model entries, so switching tabs or leaving the page open does not fan out model-list requests to every gateway. A gateway's model list is loaded on demand, when you open that gateway (`models/list` for the selected gateway), and the periodic refresh no longer triggers catalog reads.
 
 ## Model capabilities and controls
 
@@ -76,24 +115,18 @@ Speed support is checked for the exact gateway and upstream model, using its sel
 - **New API** deployments may filter `service_tier` unless the channel allows passthrough; a differing or missing response stamp is not by itself a diagnosis of where filtering occurred.
 - **Other gateways** remain usable through the generic OpenAI-compatible path. Missing tier declarations stay unknown; manual mappings are optional trials, not detected support.
 
-Accelerated tiers may cost more. Connection probes and catalog reads never call a model, and there are no automatic paid probes. User-triggered **model tests** (including batch tests) and **chat** do call models and may incur charges. Claude / Gemini *speed modes* (where they exist) are not covered; the Gemini **protocol** itself is supported for chat and model tests.
-
 ## Model tests
 
-One tiny request per model (or per batch), with a very small output cap. Results record the protocol, latency, an output preview and a classified error (no channel, bad token, rate limited, timed out). All four wire protocols are supported: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini. The Gemini test uses exactly the chat URL — `POST {gateway}/v1beta/models/{model}:streamGenerateContent?alt=sse` with `x-goog-api-key` — and requires a `finishReason`; a bare `[DONE]`, or an OpenAI-shaped stream, is not a Gemini success.
+One tiny request per model (or per batch), with a very small output cap. Results record the protocol, latency, an output preview and a classified error (no channel, bad token, rate limited, timed out). All four wire protocols are supported: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages and Gemini.
 
-Tests do call the model and may be billed. They only run when you press the button.
+The Gemini test uses exactly the chat URL — `POST {gateway}/v1beta/models/{model}:streamGenerateContent?alt=sse` with `x-goog-api-key` — and requires a `finishReason`; a bare `[DONE]`, or an OpenAI-shaped stream, is not a Gemini success. The Gemini chat path is built on the same `/v1beta` base, so a gateway that works in chat answers the test the same way.
 
-## Add a gateway
+## Boundaries
 
-![Add gateway](docs/screenshots/add.png)
-
-1. Settings → AI Gateway → **Add gateway**.
-2. Enter the address and token, then **Test connection**.
-3. The name is filled with what the gateway calls itself (only when you have not typed one), its favicon previews in the address field, and the check reports the model counts.
-4. Save. The gateway's models appear in the chat model picker under **AI Gateway**.
-
-Only one gateway is active at a time; switching affects every session using the plugin. Tokens are stored in the DSH credential store — never in the config, never returned to the page.
+- **No automatic paid probing.** Connection checks, the fetch-info button and catalog reads send read-only requests and never call a model.
+- **User-triggered actions do call models.** Model tests (including batch tests) and chat itself are real requests and may be billed. Only you start them.
+- **A response stamp is not independent proof.** A returned `service_tier` records what the gateway reported; it does not prove the upstream really accelerated the request, and shorter latency does not prove it either.
+- **Not in scope:** Claude or Gemini **speed tiers** (where such modes exist). Their **protocols** are supported for chat and model tests; only the OpenAI Chat / Responses speed tiers are.
 
 ## Privacy and safety
 
@@ -112,7 +145,7 @@ Only one gateway is active at a time; switching affects every session using the 
 ## Development
 
 ```sh
-npm test                                    # 141 tests against local fake gateways
+npm test                                    # 154 tests against local fake gateways
 node scripts/probe.mjs --base <url>         # probe from a shell
 GATEWAY_KEY=sk-... node scripts/probe.mjs --base <url>
 ```
