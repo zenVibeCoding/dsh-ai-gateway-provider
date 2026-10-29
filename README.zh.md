@@ -20,7 +20,7 @@
 dsh-ai-gateway-provider
 ```
 
-需要 DSH ≥ 0.2.1-rc.1 且 < 0.3.0。本文说明 **0.7.0**；npm 上实际提供的版本以 `npm view dsh-ai-gateway-provider version` 的结果为准（写这段时为 0.6.0），请以下载到的那一版为准。现有截图仅作说明，可能早于当前编辑器。
+需要 DSH ≥ 0.2.1-rc.1 且 < 0.3.0。本文说明 **0.7.1**；npm 上实际提供的版本以 `npm view dsh-ai-gateway-provider version` 的结果为准（写这段时为 0.7.0），请以下载到的那一版为准。现有截图仅作说明，可能早于当前编辑器。
 
 ## 它做什么
 
@@ -88,7 +88,7 @@ dsh-ai-gateway-provider
 
 ## 模型能力与开关
 
-获取模型列表时，同时解析逐模型的推理等级和速度档位。推理优先使用手动映射，其次是网关的 `supported_reasoning_levels` / `default_reasoning_level`，再回退到 pi-ai 内置目录或模型系列资料；这些 fallback 是模型资料，**不是网关声明**，未识别的支持情况仍为未知。速度声明只采纳逐模型的 `service_tiers` / `supported_service_tiers`；目录发现不自动发付费模型探测。
+获取模型列表时，同时解析逐模型的推理等级和速度档位。推理优先使用手动映射，其次是网关的 `supported_reasoning_levels` / `default_reasoning_level`，再回退到 pi-ai 内置目录或模型系列资料；这些 fallback 是模型资料，**不是网关声明**，未识别的支持情况仍为未知。`supports_reasoning_effort_updates` 只表示进行中的回合能否改档位（Claude 声明 `false`），不决定档位是否存在，因此不会清空档位选择器。解析出的档位还会沿用 pi-ai 对该模型的 `compat` 声明（如 `forceAdaptiveThinking`），使档位以自适应 effort 而非 token 预算发往上游。速度声明只采纳逐模型的 `service_tiers` / `supported_service_tiers`；目录发现不自动发付费模型探测。
 
 点击模型行的铅笔，可以独立启用推理等级和速度档位，通过行编辑表添加、删除允许在对话中出现的档位，并编辑对应 API 参数值。关闭速度会隐藏会话按钮并完全省略 `service_tier`，旧会话选择也不能绕过；关闭推理等级选择后不再提供等级菜单。自动识别资料保留，重新开启时可继续使用。
 

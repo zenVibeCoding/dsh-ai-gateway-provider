@@ -20,7 +20,7 @@ Most providers are the same three endpoints with different names on the box. Ins
 dsh-ai-gateway-provider
 ```
 
-Requires DSH ≥ 0.2.1-rc.1 and < 0.3.0. This README describes **0.7.0**; the version npm actually serves is whatever `npm view dsh-ai-gateway-provider version` reports (0.6.0 when this was written), and that result is the one to trust. Existing screenshots are illustrative and may predate the current editor.
+Requires DSH ≥ 0.2.1-rc.1 and < 0.3.0. This README describes **0.7.1**; the version npm actually serves is whatever `npm view dsh-ai-gateway-provider version` reports (0.7.0 when this was written), and that result is the one to trust. Existing screenshots are illustrative and may predate the current editor.
 
 ## What it does
 
@@ -88,7 +88,7 @@ Opening the settings page reads no model catalog. The page snapshot carries the 
 
 ## Model capabilities and controls
 
-Fetching a model list also resolves per-model reasoning levels and speed tiers. Reasoning resolution prefers manual mappings, then gateway `supported_reasoning_levels` / `default_reasoning_level`, then pi-ai's bundled catalog or family defaults. Those fallbacks are model metadata, **not gateway declarations**; unrecognised support remains unknown. Only per-model `service_tiers` / `supported_service_tiers` establish speed declarations. Discovery never sends billed model probes.
+Fetching a model list also resolves per-model reasoning levels and speed tiers. Reasoning resolution prefers manual mappings, then gateway `supported_reasoning_levels` / `default_reasoning_level`, then pi-ai's bundled catalog or family defaults. Those fallbacks are model metadata, **not gateway declarations**; unrecognised support remains unknown. `supports_reasoning_effort_updates` only says whether a running turn may change its level (Claude answers `false`), so it never blanks the level selector. A resolved model also keeps pi-ai's own `compat` block for that id (for example `forceAdaptiveThinking`), so a level reaches the upstream as an adaptive effort rather than a thinking-token budget. Only per-model `service_tiers` / `supported_service_tiers` establish speed declarations. Discovery never sends billed model probes.
 
 The model editor has independent reasoning and speed switches, with row-based add/remove controls and editable API values. Turning speed off hides the composer control and omits `service_tier`, including old conversation choices. Turning reasoning selection off removes its level menu. Detection metadata is retained for re-enabling.
 

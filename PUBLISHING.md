@@ -1,19 +1,25 @@
 # 发布清单（维护者用）
 
-## 当前状态（2026-10-28）
+## 当前状态（2026-10-29）
 
 | 项目 | 状态 |
 | --- | --- |
-| 本地版本 / 待发布 | **0.7.0**（`package.json` 已就位，本地改动尚未发布） |
-| npm 当前版本 | **0.6.0**；以 `npm view dsh-ai-gateway-provider dist-tags --json` 与 `npm view dsh-ai-gateway-provider version` 的实际结果为准 |
-| 测试基线 | **154 项离线测试**通过（本地假网关）；每次发布前重新运行 |
+| 本地版本 / 待发布 | **0.7.1**（`package.json` 已就位，本地改动尚未发布） |
+| npm 当前版本 | **0.7.0**；以 `npm view dsh-ai-gateway-provider dist-tags --json` 与 `npm view dsh-ai-gateway-provider version` 的实际结果为准 |
+| 测试基线 | **158 项离线测试**通过（本地假网关）；每次发布前重新运行 |
 | GitHub | https://github.com/zenVibeCoding/dsh-ai-gateway-provider |
-| 插件市场 | 已有 PR awesome-dsh-plugin#9445；发布时另行核对合并状态 |
+| 插件市场 | `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 已在 main；市场版本由 `probe-npm` 从 registry 读取，发版后自动跟进 |
 | 封面 / 截图 | 保留 `assets/cover.png` 与现有截图链接；`screenshots.json` 中封面排第一。旧截图仅作说明，不保证当前编辑器与「获取信息」按钮已有截图 |
 
 本清单记录可复现的发布步骤。只有 npm registry、Git 标签和市场检查的实际结果才表示对应阶段完成；离线检查不调用真实模型。
 
-### 0.7.0 待发布内容
+### 0.7.1 内容（Claude 推理档位适配）
+
+- **修复：Claude 的推理档位被整体清空**。网关目录里 Claude 声明了五个档位（low / medium / high / xhigh / max）和默认档位，但 `supports_reasoning_effort_updates: false` 被当成「无档位」信号——该字段只表示进行中的回合不能改档位。现在只有显式空 `supported_reasoning_levels` 才算无档位，Claude 的档位选择器与默认档位恢复。（真实网关 CLIProxyAPI `/v1/models?client_version=dsh` 实测：修复前 `levels: []`、`supported: false`。）
+- **修复：档位没有真正发成 effort**。`toPiModel()` 丢掉了 pi-ai 对该模型的 `compat`，于是 Claude 走 token 预算路径，`xhigh`/`max` 与 `high` 完全等价（都是 16384）。现在按 id 取 pi-ai 内置条目的 `compat`（剔除 `supportsMidConvo*`、`allowedFallbackModels`、路由与亲和性字段）并带进模型：Claude 走自适应思考，档位按 `output_config.effort` 逐个下发（实测 low/high/xhigh/max 各自生效）。
+- 目录解析改为每个 id 只查一次 pi-ai 目录；同一条目同时提供档位表与 `compat`。
+
+### 0.7.0（npm 当前版本）内容
 
 - **多网关同时可用**：每个已保存网关各注册一条 provider 路由，模型选择器按网关分组（组名=网关名），同名模型互不冲突。首个网关保留旧路由 `ai-gateway`，后续网关派生 `ai-gateway-<slug>`，旧会话路由不失效；路由随列表持久化，增删改不挪动其它网关。
 - **网关级隐藏**：卡片上的眼睛按钮把该网关从对话模型选择器隐藏；地址、令牌、逐模型设置与历史解析保留，隐藏期间不再请求额度。新增 `channel/visibility` 动作。
@@ -22,7 +28,7 @@
 - **Gemini 协议模型测试**：与聊天完全相同的 `POST {网关}/v1beta/models/{模型}:streamGenerateContent?alt=sse` + `x-goog-api-key`，要求 `finishReason`；裸 `[DONE]` 或 OpenAI 形状的流不算成功。同时修复 Gemini 聊天基址缺少 `/v1beta`。
 - **性能**：页面快照不再顺带读取模型目录，模型清单按所选网关按需加载（`models/list`），定时刷新不再触发目录请求。
 
-### 0.6.0（npm 当前版本）内容
+### 0.6.0 内容
 
 - 推理 / 速度行式编辑器：逐行添加、删除和修改 API 参数值；关闭推理会停用等级选择，关闭速度会隐藏会话按钮并省略 `service_tier`。
 - GPT-only 速度选择，仅用于实际选中的 OpenAI Chat / Responses 协议；能力按具体网关与上游模型解析。
@@ -31,14 +37,13 @@
 
 历史：**0.5.2** 隐藏模型原位置灰、封面与截图配置；**0.5.1** 单个 / 整组隐藏模型；**0.5.0** 首次公开发布。
 
-## 0.7.0 发布前核对
+## 0.7.1 发布前核对
 
-- [x] `package.json` / `index.js` VERSION / 客户端展示版本均为 `0.7.0`；依赖范围保持 DSH ≥ 0.2.1-rc.1, < 0.3.0。
-- [x] 2026-10-28 重新运行：154 项离线测试通过，`node --check` 全部通过，中英 locale key 无差异。
-- [x] 中英 README 的 16 个二级标题行号完全一致，顶端互链为绝对 GitHub URL，封面与截图链接保留。
-- [x] `npm pack` 产物 23 个文件；已扫描无 `.npmrc`、本地缓存、规划文件，也无 GitHub/npm 令牌或 `sk-` 形态字符串。产物 shasum `3690313936c36a35efba8e743d81f136836af815`。
+- [x] `package.json` / `index.js` VERSION / 客户端展示版本均为 `0.7.1`；依赖范围保持 DSH ≥ 0.2.1-rc.1, < 0.3.0。
+- [x] 2026-10-29 重新运行：158 项离线测试通过，`node --check` 全部通过，中英 locale key 无差异。
+- [x] `npm pack` 产物 23 个文件；已扫描无 `.npmrc`、本地缓存、规划文件，也无 GitHub/npm 令牌或 `sk-` 形态字符串。该清单自身也在包内，所以 shasum 以最后一次 `npm publish` 输出为准，不在此写死。
 - [ ] 执行 npm 发布并核对 registry 版本、shasum 与文件清单；成功后再更新状态表。
-- [ ] Git 提交 / 推送、`v0.7.0` 标签、市场条目（`docs/market-entry.yml` → PR）同步。
+- [ ] Git 提交 / 推送、`v0.7.1` 标签、市场条目（`docs/market-entry.yml` 与市场侧条目一致，无需改内容）。
 
 ### 离线 / 打包检查
 
@@ -59,9 +64,9 @@ npm publish
 npm view dsh-ai-gateway-provider version
 ```
 
-npm 的认证 / 2FA 提示按交互流程完成。**只有发布成功后**，registry 版本才应为 `0.7.0`；随后下载 tarball 核对文件完整性及无凭据，再按仓库流程提交 / 推送并创建 `v0.7.0` 标签。这里不重建已有远端仓库。
+npm 的认证 / 2FA 提示按交互流程完成。**只有发布成功后**，registry 版本才应为 `0.7.1`；随后下载 tarball 核对文件完整性及无凭据，再按仓库流程提交 / 推送并创建 `v0.7.1` 标签。这里不重建已有远端仓库。
 
-市场条目位于 `docs/market-entry.yml`；核对已有 PR 后再更新，避免重复提单。收录要求包括 `dsh.bundle`、仓库满 24 小时及已有提交，门禁状态以市场实际检查为准。
+市场条目位于 `docs/market-entry.yml`，与市场 main 上的 `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 保持一致；条目本身不含版本号，市场侧的版本与发布时间由 `scripts/probe-npm.mjs` 从 registry 读取，因此发版后无需改条目。收录要求包括 `dsh.bundle`、仓库满 24 小时及已有提交，门禁状态以市场实际检查为准。
 
 ## 版本与兼容
 

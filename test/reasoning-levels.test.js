@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 process.env.DSH_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'newapi-provider-levels-'));
-const { LevelCatalog, levelsFromMap, mapFromLevels, resolveReasoningLevels, gatewayReasoning, LEVELS } = await import('../lib/levels.js');
+const { LevelCatalog, levelsFromMap, mapFromLevels, resolveReasoningLevels, gatewayReasoning, thinkingCompat, LEVELS } = await import('../lib/levels.js');
 const { Catalog } = await import('../lib/catalog.js');
 
 test('gateway reasoning is unknown without explicit valid per-model metadata', () => {
@@ -32,17 +32,43 @@ test('gateway reasoning is unknown without explicit valid per-model metadata', (
   ]) assert.equal(gatewayReasoning(model), undefined, JSON.stringify(model));
 });
 
-test('gateway empty list or false explicitly disables effort updates', () => {
+test('only an explicitly empty level list disables effort updates', () => {
   const expected = {
     levels: [], map: Object.fromEntries(LEVELS.map((level) => [level, null])),
     source: 'gateway', supported: false, defaultEffort: undefined,
   };
   for (const model of [
     { supported_reasoning_levels: [] },
-    { supports_reasoning_effort_updates: false },
-    { supports_reasoning_effort_updates: false, supported_reasoning_levels: ['high'], default_reasoning_level: 'high' },
-    { supports_reasoning_effort_updates: false, supported_reasoning_levels: 'malformed' },
+    { supported_reasoning_levels: [], supports_reasoning_effort_updates: false },
+    { supported_reasoning_levels: [], supports_reasoning_effort_updates: true, default_reasoning_level: 'high' },
   ]) assert.deepEqual(gatewayReasoning(model), expected);
+});
+
+test('a level that cannot be updated mid-turn still keeps its levels (CLIProxy Claude)', () => {
+  // Exactly what a CLIProxyAPI catalog serves for claude-sonnet-5-5: five efforts, a
+  // default, and `supports_reasoning_effort_updates: false` — the flag says a running
+  // turn cannot change its level, not that the model has none.
+  const model = {
+    slug: 'claude-sonnet-5-5',
+    default_reasoning_level: 'medium',
+    supports_reasoning_effort_updates: false,
+    supported_reasoning_levels: [
+      { description: 'Fast responses with lighter reasoning', effort: 'low' },
+      { description: 'Balances speed and reasoning depth', effort: 'medium' },
+      { description: 'Greater reasoning depth', effort: 'high' },
+      { description: 'Extra high reasoning depth', effort: 'xhigh' },
+      { description: 'Maximum available reasoning depth', effort: 'max' },
+    ],
+  };
+  const parsed = gatewayReasoning(model);
+  assert.equal(parsed.supported, true);
+  assert.deepEqual(parsed.levels, ['low', 'medium', 'high', 'xhigh', 'max']);
+  assert.equal(parsed.defaultEffort, 'medium');
+  assert.equal(parsed.source, 'gateway');
+  assert.deepEqual(levelsFromMap(parsed.map), parsed.levels);
+  // The flag on its own declares nothing: the installed catalog decides instead.
+  assert.equal(gatewayReasoning({ supports_reasoning_effort_updates: false }), undefined);
+  assert.equal(gatewayReasoning({ supports_reasoning_effort_updates: false, supported_reasoning_levels: 'malformed' }), undefined);
 });
 
 test('gateway levels normalise none, preserve wire values and hide undeclared standards', () => {
@@ -81,7 +107,7 @@ test('resolver prioritises user overrides, then parsed gateway metadata, then ol
   assert.deepEqual(await resolveReasoningLevels({ id: 'gpt-6', catalog, gateway }), gateway);
   // Gateway and explicit maps need no catalog lookup at all.
   assert.deepEqual(await resolveReasoningLevels({ id: 'private', gateway }), gateway);
-  const disabled = gatewayReasoning({ supports_reasoning_effort_updates: false });
+  const disabled = gatewayReasoning({ supported_reasoning_levels: [] });
   assert.deepEqual(await resolveReasoningLevels({ id: 'gpt-6', catalog, gateway: disabled }), disabled);
   const override = await resolveReasoningLevels({ id: 'gpt-6', catalog, gateway, override: ['off', 'low'] });
   assert.deepEqual(override.levels, ['off', 'low']);
@@ -217,4 +243,56 @@ test('custom level names work when they carry a wire value', async () => {
   // A custom name that is not a safe id never becomes a level.
   const rejected = await resolveReasoningLevels({ id: 'x', overrideMap: { 'Not An Id': 'x' }, catalog });
   assert.deepEqual(rejected.levels, ['off', 'minimal', 'low', 'medium', 'high']);
+});
+
+test('a resolved entry can be handed in, so one id is looked up once', async () => {
+  const catalog = familyOnly();
+  let lookups = 0;
+  catalog.find = async () => { lookups++; return { model: { thinkingLevelMap: { off: null, minimal: null, low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' } }, match: 'exact' }; };
+  const found = await catalog.find('claude-sonnet-5-5');
+  const resolved = await resolveReasoningLevels({ id: 'claude-sonnet-5-5', catalog, found });
+  assert.equal(resolved.source, 'catalog');
+  assert.deepEqual(resolved.levels, ['low', 'medium', 'high', 'xhigh', 'max']);
+  assert.equal(lookups, 1);
+});
+
+test('the shipped compat block survives, minus routing and mid-conversation switching', () => {
+  // pi-ai's own anthropic entry for claude-sonnet-5-5.
+  const shipped = {
+    supportsMidConvoEffort: true, supportsMidConvoSystemMessages: true, supportsMidConvoToolChanges: true,
+    forceAdaptiveThinking: true, supportsTemperature: false, supportsStrictTools: true,
+    allowedFallbackModels: [{ provider: 'anthropic', model: 'claude-opus-5' }],
+    sendSessionAffinityHeaders: true, sessionAffinityFormat: 'anthropic',
+  };
+  // What stays decides how the level reaches the wire. What leaves either moves the
+  // level into synthetic system messages (pi-ai then pins `output_config.effort` to
+  // "high") or switches the model behind the user's back.
+  assert.deepEqual(thinkingCompat(shipped), {
+    forceAdaptiveThinking: true, supportsTemperature: false, supportsStrictTools: true,
+  });
+  assert.equal(thinkingCompat(undefined), undefined);
+  assert.equal(thinkingCompat({}), undefined);
+  assert.equal(thinkingCompat([{ forceAdaptiveThinking: true }]), undefined);
+  // Nothing but withheld fields is the same as no compat at all.
+  assert.equal(thinkingCompat({ allowedFallbackModels: [], openRouterRouting: { only: ['x'] } }), undefined);
+});
+
+test('one gateway entry carries its levels and the compat that puts them on the wire', async () => {
+  const modelsDev = { refresh: async () => {}, status: () => ({}), match: () => ({ reasoning: true, context: 200000, output: 64000, provider: 'x', match: 'exact' }) };
+  const levels = familyOnly();
+  levels.index = new Map([['claude-sonnet-5-5', {
+    id: 'claude-sonnet-5-5',
+    thinkingLevelMap: { off: null, minimal: null, low: 'low', medium: 'medium', high: 'high', xhigh: 'xhigh', max: 'max' },
+    compat: { forceAdaptiveThinking: true, allowedFallbackModels: [] },
+  }]]);
+  levels.loading = Promise.resolve(levels.index);
+  const cat = new Catalog({ modelsDev, logger: { warn() {} }, levels });
+  const conn = { channelId: 'c1', baseURL: 'https://gw.example.com', providerId: 'ai-gateway', keyFingerprint: 'k', overridesRev: '1', headers: {}, overrides: {} };
+  const models = { data: [{ id: 'claude-sonnet-5-5' }] };
+  const info = await cat.resolveLevels(conn, { models });
+  const entry = cat.build(conn, { models }, info).entries.find((e) => e.id === 'claude-sonnet-5-5');
+  assert.equal(entry.reasoning, true);
+  assert.deepEqual(entry.reasoningLevels, ['low', 'medium', 'high', 'xhigh', 'max']);
+  assert.equal(entry.reasoningLevelsSource, 'catalog');
+  assert.deepEqual(entry.piCompat, { forceAdaptiveThinking: true });
 });
