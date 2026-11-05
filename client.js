@@ -1318,7 +1318,7 @@ window.__ModuleLoader__.load({
      * results. Filtering never drops the current selection: the pick set is
      * keyed by id and survives every status/kind/search change.
      */
-    function DiscoverDialog({ channel, revision, onClose, onDone }) {
+    function DiscoverDialog({ channel, revision, onClose, onDone, onDiscovered }) {
       const t = useT(); const [data, setData] = useState(); const [error, setError] = useState('');
       const [picked, setPicked] = useState(() => new Set()); const a = useAction();
       const [search, setSearch] = useState(''); const [status, setStatus] = useState('all'); const [kind, setKind] = useState('all');
@@ -1331,6 +1331,7 @@ window.__ModuleLoader__.load({
           if (!alive) return;
           setData(d);
           setPicked(new Set(d.models.filter((m) => m.status === 'new').map((m) => m.id)));
+          onDiscovered();
         }).catch((e) => alive && setError(e.message));
         return () => { alive = false; };
       }, [channel.id]);
@@ -1471,16 +1472,24 @@ window.__ModuleLoader__.load({
      */
     function useChannelModels(state, channelId) {
       const [view, setView] = useState({ id: null, data: null, error: '', loading: false });
+      // Catalog changes are independent of settings revisions. Explicit refreshes
+      // also bypass the backend cache, which is separate from discovery's catalog.
+      const [refreshVersion, setRefreshVersion] = useState(0);
+      const loadedRefreshVersion = useRef(0);
       useEffect(() => {
         if (!channelId) return undefined;
         let alive = true;
         setView((o) => ({ id: channelId, data: o.id === channelId ? o.data : null, error: '', loading: true }));
-        api('models/list', { channelId })
-          .then((data) => { if (alive) setView({ id: channelId, data, error: '', loading: false }); })
+        api('models/list', { channelId, force: refreshVersion !== loadedRefreshVersion.current })
+          .then((data) => {
+            if (!alive) return;
+            loadedRefreshVersion.current = refreshVersion;
+            setView({ id: channelId, data, error: '', loading: false });
+          })
           .catch((e) => { if (alive) setView({ id: channelId, data: null, error: e.message, loading: false }); });
         return () => { alive = false; };
-      }, [channelId, state.revision]);
-      return { models: view.id === channelId ? view.data : null, loading: view.id === channelId ? view.loading : Boolean(channelId), error: view.id === channelId ? view.error : '' };
+      }, [channelId, state.revision, refreshVersion]);
+      return { models: view.id === channelId ? view.data : null, loading: view.id === channelId ? view.loading : Boolean(channelId), error: view.id === channelId ? view.error : '', refresh: () => setRefreshVersion((n) => n + 1) };
     }
     function ModelsPanel({ state, channel, view: provided, onEdit, notify }) {
       const t = useT(); useTests();
@@ -1601,7 +1610,7 @@ window.__ModuleLoader__.load({
           });
         })()),
         undo && h('div', { className: 'nas-toast', role: 'status' }, h('span', null, tf('modelRemoved', undo.model.id)), h(Button, { small: true, onClick: restore, disabled: a.pending }, t('undo'))),
-        dialog?.type === 'discover' && h(DiscoverDialog, { channel: dialog.channel, revision: dialog.revision, onClose: () => close(), onDone: close }),
+        dialog?.type === 'discover' && h(DiscoverDialog, { channel: dialog.channel, revision: dialog.revision, onClose: () => close(), onDone: close, onDiscovered: view.refresh }),
         dialog?.type === 'batch' && h(BatchTestDialog, { channel: dialog.channel, models: dialog.models, onClose: () => close() }),
         dialog?.type === 'paid' && h(PaidTestDialog, { channel: dialog.channel, model: dialog.model, onClose: () => close() }),
         dialog?.type === 'manual' && h(ManualAddDialog, { channel: dialog.channel, revision: dialog.revision, existing: new Set(models.map((m) => m.id)), onClose: () => close(), onDone: close }),
@@ -1619,7 +1628,7 @@ window.__ModuleLoader__.load({
       const view = useChannelModels(state, viewChannel?.id ?? null);
       const notify = (key) => { setNotice(t(key)); setEditor(undefined); setModelEditor(undefined); };
       useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 5000); return () => clearTimeout(timer); }, [notice]);
-      const sync = () => a.run(() => store.mutate('refresh', {}));
+      const sync = () => a.run(async () => { await store.mutate('refresh', {}); view.refresh(); });
       const header = h('header', { className: 'nas-head' },
         h('div', null, h('div', { className: 'nas-eyebrow' }, h(Icon, { name: 'gateway', size: 12 }), 'AI GATEWAY'), h('h2', null, t('title')), h('div', { className: 'nas-sub' }, t('subtitle'))),
         h('div', { className: 'nas-actions' }, h(Button, { icon: 'refresh', onClick: sync, disabled: busy, 'aria-busy': busy }, t(busy ? 'refreshing' : 'refresh')),
