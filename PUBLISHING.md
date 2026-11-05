@@ -4,8 +4,8 @@
 
 | 项目 | 状态 |
 | --- | --- |
-| 本地版本 / 待发布 | **0.7.2**（`package.json` 已就位，本地改动尚未发布） |
-| npm 当前版本 | **0.7.1**（`latest`），2026-10-29 发布；以 `npm view dsh-ai-gateway-provider dist-tags --json` 与 `npm view dsh-ai-gateway-provider version` 的实际结果为准 |
+| 本地版本 | **0.7.2**（已发布） |
+| npm 当前版本 | **0.7.2**（`latest`），2026-11-05 发布；以 `npm view dsh-ai-gateway-provider dist-tags --json` 与 `npm view dsh-ai-gateway-provider version` 的实际结果为准 |
 | 测试基线 | **164 项离线测试**通过（本地假网关）；每次发布前重新运行 |
 | GitHub | https://github.com/zenVibeCoding/dsh-ai-gateway-provider |
 | 插件市场 | `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 已在 main；市场版本由 `probe-npm` 从 registry 读取，发版后自动跟进 |
@@ -51,8 +51,9 @@
 - [x] 2026-11-05 合并 PR #1 后重新运行：164 项离线测试通过，`node --check` 全部通过，中英 locale key 无差异。
 - [x] `npm pack` 产物 23 个文件；已扫描无 `.npmrc`、本地缓存、规划文件，也无 GitHub/npm 令牌或 `sk-` 形态字符串。该清单自身也在包内，所以 shasum 以最后一次 `npm publish` 输出为准，不在此写死。
 - [x] 2026-10-29 发布 0.7.1：registry `latest` 指向 0.7.1，tarball 23 个文件、shasum `c9994efc703ece9796ccca77a8b24bb0f1e5ee2a` 与 integrity 一致。
-- [ ] 执行 0.7.2 发布并核对 registry 版本、shasum 与文件清单。
-- [ ] Git 提交 / 推送、`v0.7.2` 标签。
+- [x] 2026-11-05 发布 0.7.2：registry `latest` 已指向 0.7.2，重新下载 tarball 核对 23 个文件、shasum `bcc1d502d84e6ad6391061ffde031b96a837338a` 与 integrity 一致。
+- [x] Git 提交 `10fd04f` 与标签 `v0.7.2` 已推送；市场条目不变，版本由每日 `probe-npm` 跟进。
+- [ ] 市场侧 `awesome-dsh-plugin.com/plugins.json` 跟进到 0.7.2（每日构建自动读取 registry）。
 - [ ] 市场侧 `awesome-dsh-plugin.com/plugins.json` 从 0.7.0 跟进到 0.7.1（`build-site.yml` 每日 `probe-npm` 自动读取 registry，无需人工操作）。
 
 ### 离线 / 打包检查
