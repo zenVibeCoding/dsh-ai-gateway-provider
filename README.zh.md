@@ -20,7 +20,7 @@
 dsh-ai-gateway-provider
 ```
 
-需要 DSH ≥ 0.2.1-rc.1 且 < 0.3.0。本文说明 **0.7.1**；npm 上实际提供的版本以 `npm view dsh-ai-gateway-provider version` 的结果为准（写这段时为 0.7.0），请以下载到的那一版为准。现有截图仅作说明，可能早于当前编辑器。
+需要 DSH ≥ 0.2.1-rc.1 且 < 0.3.0。本文说明 **0.7.2**；npm 上实际提供的版本以 `npm view dsh-ai-gateway-provider version` 的结果为准（写这段时为 0.7.1），请以下载到的那一版为准。现有截图仅作说明，可能早于当前编辑器。
 
 ## 它做什么
 

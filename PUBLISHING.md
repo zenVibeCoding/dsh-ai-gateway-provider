@@ -1,19 +1,27 @@
 # 发布清单（维护者用）
 
-## 当前状态（2026-10-29）
+## 当前状态（2026-11-05）
 
 | 项目 | 状态 |
 | --- | --- |
-| 本地版本 | **0.7.1**（已发布） |
+| 本地版本 / 待发布 | **0.7.2**（`package.json` 已就位，本地改动尚未发布） |
 | npm 当前版本 | **0.7.1**（`latest`），2026-10-29 发布；以 `npm view dsh-ai-gateway-provider dist-tags --json` 与 `npm view dsh-ai-gateway-provider version` 的实际结果为准 |
-| 测试基线 | **158 项离线测试**通过（本地假网关）；每次发布前重新运行 |
+| 测试基线 | **164 项离线测试**通过（本地假网关）；每次发布前重新运行 |
 | GitHub | https://github.com/zenVibeCoding/dsh-ai-gateway-provider |
 | 插件市场 | `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 已在 main；市场版本由 `probe-npm` 从 registry 读取，发版后自动跟进 |
 | 封面 / 截图 | 保留 `assets/cover.png` 与现有截图链接；`screenshots.json` 中封面排第一。旧截图仅作说明，不保证当前编辑器与「获取信息」按钮已有截图 |
 
 本清单记录可复现的发布步骤。只有 npm registry、Git 标签和市场检查的实际结果才表示对应阶段完成；离线检查不调用真实模型。
 
-### 0.7.1（npm 当前版本）内容：Claude 推理档位适配
+### 0.7.2 内容（同步 / 获取模型后刷新能力）
+
+- **「同步数据」重新加载当前查看渠道的模型能力**：即使配置没有任何变化，也会带 `force` 请求 `models/list`，绕过后端目录缓存（10 分钟）；不再需要关掉再打开设置。
+- **「获取模型列表」成功后刷新能力**：`DiscoverDialog` 拿到目录后回调列表刷新，自动模式下「发现的模型已全部启用、无需添加」的情况同样生效。
+- **并发安全**：迟到的旧列表响应不会覆盖手动刷新结果（旧 effect 已被清理）；刷新失败时保留原列表，可再次同步重试。
+- 后台定时快照仍然不请求模型目录。
+- 来自社区 PR #1（@simmzl），新增 `test/model-capabilities-refresh.test.js`（6 项，用轻量渲染器跑真实 `client.js`）。
+
+### 0.7.1 内容：Claude 推理档位适配
 
 - **修复：Claude 的推理档位被整体清空**。网关目录里 Claude 声明了五个档位（low / medium / high / xhigh / max）和默认档位，但 `supports_reasoning_effort_updates: false` 被当成「无档位」信号——该字段只表示进行中的回合不能改档位。现在只有显式空 `supported_reasoning_levels` 才算无档位，Claude 的档位选择器与默认档位恢复。（真实网关 CLIProxyAPI `/v1/models?client_version=dsh` 实测：修复前 `levels: []`、`supported: false`。）
 - **修复：档位没有真正发成 effort**。`toPiModel()` 丢掉了 pi-ai 对该模型的 `compat`，于是 Claude 走 token 预算路径，`xhigh`/`max` 与 `high` 完全等价（都是 16384）。现在按 id 取 pi-ai 内置条目的 `compat`（剔除 `supportsMidConvo*`、`allowedFallbackModels`、路由与亲和性字段）并带进模型：Claude 走自适应思考，档位按 `output_config.effort` 逐个下发（实测 low/high/xhigh/max 各自生效）。
@@ -37,13 +45,14 @@
 
 历史：**0.5.2** 隐藏模型原位置灰、封面与截图配置；**0.5.1** 单个 / 整组隐藏模型；**0.5.0** 首次公开发布。
 
-## 0.7.1 发布前核对
+## 0.7.2 发布前核对
 
-- [x] `package.json` / `index.js` VERSION / 客户端展示版本均为 `0.7.1`；依赖范围保持 DSH ≥ 0.2.1-rc.1, < 0.3.0。
-- [x] 2026-10-29 重新运行：158 项离线测试通过，`node --check` 全部通过，中英 locale key 无差异。
+- [x] `package.json` / `index.js` VERSION / 客户端展示版本均为 `0.7.2`；依赖范围保持 DSH ≥ 0.2.1-rc.1, < 0.3.0。
+- [x] 2026-11-05 合并 PR #1 后重新运行：164 项离线测试通过，`node --check` 全部通过，中英 locale key 无差异。
 - [x] `npm pack` 产物 23 个文件；已扫描无 `.npmrc`、本地缓存、规划文件，也无 GitHub/npm 令牌或 `sk-` 形态字符串。该清单自身也在包内，所以 shasum 以最后一次 `npm publish` 输出为准，不在此写死。
-- [x] 2026-10-29 发布 0.7.1：registry `latest` 已指向 0.7.1，重新下载 tarball 核对 23 个文件、shasum `c9994efc703ece9796ccca77a8b24bb0f1e5ee2a` 与 integrity 一致，无非预期文件。
-- [x] Git 提交 `91ce16d` 已推送 `master`，标签 `v0.7.1` 已推送；市场条目已在 main 且不含版本号，无需提 PR。
+- [x] 2026-10-29 发布 0.7.1：registry `latest` 指向 0.7.1，tarball 23 个文件、shasum `c9994efc703ece9796ccca77a8b24bb0f1e5ee2a` 与 integrity 一致。
+- [ ] 执行 0.7.2 发布并核对 registry 版本、shasum 与文件清单。
+- [ ] Git 提交 / 推送、`v0.7.2` 标签。
 - [ ] 市场侧 `awesome-dsh-plugin.com/plugins.json` 从 0.7.0 跟进到 0.7.1（`build-site.yml` 每日 `probe-npm` 自动读取 registry，无需人工操作）。
 
 ### 离线 / 打包检查
@@ -65,7 +74,7 @@ npm publish
 npm view dsh-ai-gateway-provider version
 ```
 
-npm 的认证 / 2FA 提示按交互流程完成。**只有发布成功后**，registry 版本才应为 `0.7.1`；随后下载 tarball 核对文件完整性及无凭据，再按仓库流程提交 / 推送并创建 `v0.7.1` 标签。这里不重建已有远端仓库。
+npm 的认证 / 2FA 提示按交互流程完成。**只有发布成功后**，registry 版本才应为 `0.7.2`；随后下载 tarball 核对文件完整性及无凭据，再按仓库流程提交 / 推送并创建 `v0.7.2` 标签。这里不重建已有远端仓库。
 
 市场条目位于 `docs/market-entry.yml`，与市场 main 上的 `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 保持一致；条目本身不含版本号，市场侧的版本与发布时间由 `scripts/probe-npm.mjs` 从 registry 读取，因此发版后无需改条目。收录要求包括 `dsh.bundle`、仓库满 24 小时及已有提交，门禁状态以市场实际检查为准。
 

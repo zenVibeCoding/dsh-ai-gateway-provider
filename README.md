@@ -20,7 +20,7 @@ Most providers are the same three endpoints with different names on the box. Ins
 dsh-ai-gateway-provider
 ```
 
-Requires DSH ≥ 0.2.1-rc.1 and < 0.3.0. This README describes **0.7.1**; the version npm actually serves is whatever `npm view dsh-ai-gateway-provider version` reports (0.7.0 when this was written), and that result is the one to trust. Existing screenshots are illustrative and may predate the current editor.
+Requires DSH ≥ 0.2.1-rc.1 and < 0.3.0. This README describes **0.7.2**; the version npm actually serves is whatever `npm view dsh-ai-gateway-provider version` reports (0.7.1 when this was written), and that result is the one to trust. Existing screenshots are illustrative and may predate the current editor.
 
 ## What it does
 
