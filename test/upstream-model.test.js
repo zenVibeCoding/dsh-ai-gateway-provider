@@ -47,6 +47,15 @@ test('catalog maps one hop, prefers target facts, and keeps local identity and s
   assert.equal(custom.availability, 'custom'); assert.equal(custom.automaticContextWindow, 456); assert.equal(custom.automaticMaxTokens, 78);
   const legacy = cat.build({ overrides: {} }, raw).entries[0];
   assert.equal(legacy.id, 'local'); assert.equal(legacy.upstreamModel, 'local'); assert.equal(legacy.contextWindow, 10); assert.equal(legacy.availability, 'listed');
+
+  const tierCatalog = new Map([
+    ['local', { slug: 'local', display_name: 'Local Display' }],
+    ['remote', { slug: 'remote', display_name: 'Remote Display' }],
+  ]);
+  const mappedName = cat.build({ enabledModels: ['alias'], overrides: { alias: { upstreamModel: 'remote' } } }, { ...raw, tierCatalog }).entries[0];
+  assert.equal(mappedName.name, 'Remote Display', 'remapped alias inherits target display_name when name override is unset');
+  const fallbackName = cat.build({ enabledModels: ['local'], overrides: { local: { upstreamModel: 'unknown' } } }, { ...raw, tierCatalog }).entries[0];
+  assert.equal(fallbackName.name, 'Local Display', 'falls back to local display_name when mapped target is absent');
 });
 
 for (const protocol of ['openai', 'openai-response', 'anthropic']) test(`tester ${protocol} sends remote but persists local lastTest`, async (t) => {
