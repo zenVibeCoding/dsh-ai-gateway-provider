@@ -412,7 +412,7 @@ export function apply(ctx, config) {
       fetchedAt: value.fetchedAt,
       listMode: enabled ? 'list' : 'auto',
       models: value.entries.filter((e) => gatewayIds.has(e.upstreamModel ?? e.id)).map((e) => ({
-        id: e.id, upstreamModel: e.upstreamModel ?? e.id, kind: e.kind, vendor: e.vendor, input: e.input,
+        id: e.id, name: e.name, upstreamModel: e.upstreamModel ?? e.id, kind: e.kind, vendor: e.vendor, input: e.input,
         contextWindow: e.contextWindow ?? null, maxTokens: e.maxTokens ?? null,
         reasoning: e.reasoning, pricing: e.pricing,
         status: !enabled || enabled.has(e.id) || e.upstreamModel !== e.id ? 'enabled' : 'new',

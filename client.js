@@ -1066,7 +1066,7 @@ window.__ModuleLoader__.load({
         h('div', { className: 'nas-editor-identity' }, h(VendorIcon, { vendor: model.vendor, modelId: model.id }),
           h('div', null, h('div', { className: 'nas-sub' }, t('localModelId')), h('code', null, model.id))),
         h('section', { className: 'nas-editor-section' }, sectionTitle('01', 'namingSection'),
-          h(Field, { label: t('displayName'), hint: t('displayNameHint'), htmlFor: `${id}-name` }, h('input', { id: `${id}-name`, value: form.name, onChange: changed('name'), placeholder: model.id, maxLength: 500, autoFocus: true, disabled: a.pending })),
+          h(Field, { label: t('displayName'), hint: t('displayNameHint'), htmlFor: `${id}-name` }, h('input', { id: `${id}-name`, value: form.name, onChange: changed('name'), placeholder: model.name || model.id, maxLength: 500, autoFocus: true, disabled: a.pending })),
           h(Field, { label: t('upstreamModel'), hint: t('upstreamHint'), htmlFor: `${id}-upstream` }, h('input', { id: `${id}-upstream`, value: form.upstreamModel, onChange: changed('upstreamModel'), placeholder: model.id, list: `${id}-suggestions`, autoComplete: 'off', spellCheck: false, maxLength: 500, disabled: a.pending }),
             h('datalist', { id: `${id}-suggestions` }, suggestions.map((value) => h('option', { key: value, value })))),
           h('div', { className: 'nas-mapping-preview', 'aria-live': 'polite' }, h('span', { className: 'nas-sub' }, t('mappingPreview')),
@@ -1356,8 +1356,8 @@ window.__ModuleLoader__.load({
       const byStatusRank = (x, y) => statusRank[x.status] - statusRank[y.status];
       const shown = rows
         .filter((m) => (status === 'all' || m.status === status) && (kind === 'all' || m.kind === kind)
-          && (!query || `${m.id} ${m.vendor ?? ''}`.toLowerCase().includes(query)))
-        .sort((x, y) => (grouped ? byKindRank(x, y) || byStatusRank(x, y) : byStatusRank(x, y) || byKindRank(x, y)) || x.id.localeCompare(y.id));
+          && (!query || `${m.id} ${m.name ?? ''} ${m.vendor ?? ''}`.toLowerCase().includes(query)))
+        .sort((x, y) => (grouped ? byKindRank(x, y) || byStatusRank(x, y) : byStatusRank(x, y) || byKindRank(x, y)) || (x.name || x.id).localeCompare(y.name || y.id) || x.id.localeCompare(y.id));
       const selectable = shown.filter((m) => m.status === 'new' && !picked.has(m.id));
       const droppable = missing.filter((m) => !m.custom);
       const filtered = Boolean(query) || status !== 'all' || kind !== 'all';
@@ -1416,8 +1416,9 @@ window.__ModuleLoader__.load({
                   h('input', { type: 'checkbox', checked: on, disabled: enabled || gone || a.pending, onChange: () => toggle(m.id) }),
                   gone ? h('span', { className: 'nas-drow-mark warn' }, h(Icon, { name: 'alert', size: 13 })) : h(VendorIcon, { vendor: m.vendor, modelId: m.id, size: 16 }),
                   h('div', { className: 'nas-drow-main' },
-                    h('div', { className: 'nas-drow-id' }, h('span', null, m.id)),
+                    h('div', { className: 'nas-drow-id' }, h('span', null, m.name || m.id)),
                     h('div', { className: 'nas-drow-meta' },
+                      !gone && m.name && m.name !== m.id && h('span', null, m.id),
                       !gone && m.vendor && h('span', null, m.vendor),
                       !gone && h('span', { className: 'nas-drow-kind' }, kindLabel),
                       !gone && m.kind === 'chat' && m.contextWindow && h('span', { className: 'nas-drow-num' }, tokens(m.contextWindow)),
