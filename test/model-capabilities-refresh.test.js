@@ -109,6 +109,7 @@ function harness(t, { holdInitialList = false } = {}) {
   const sync = () => page.find((n) => n.type?.name === 'Button' && n.props.icon === 'refresh').props.onClick();
   return {
     calls, upstream, store, snapshot, flush, sync,
+    mountNode: (node) => mount(node.type, node.props), capabilities,
     releaseInitialList: () => held.resolve(),
     failRefresh: (value) => { failRefresh = value; },
     ids: () => clone(capabilities().props.view.models?.entries.map((m) => m.id) ?? []),
@@ -195,4 +196,39 @@ test('saved model changes still reload, and manual sync follows the selected cha
   assert.deepEqual(h.ids(), ['b-new']);
   assert.equal(h.listCalls().length, before + 1);
   assert.equal(h.listCalls().at(-1).body.channelId, 'b');
+});
+
+test('bulk removal reviews only the filtered selection and undoes it in one channel write', async (t) => {
+  const h = harness(t);
+  h.upstream.set('b', ['claude-a', 'claude-b', 'claude-c', 'gpt-d'].map(entry));
+  await h.showModels();
+  await h.selectChannel('b');
+  const panel = h.mountNode(h.capabilities());
+  const button = (label) => panel.find((n) => n.type?.name === 'Button' && n.children.includes(label));
+  const choose = async (label, checked) => {
+    panel.find((n) => n.props.type === 'checkbox' && n.props['aria-label'] === label).props.onChange({ target: { checked } });
+    await h.flush();
+  };
+  const writes = () => h.calls.filter((c) => c.path === 'models/set').map((c) => c.body);
+  button('批量管理').props.onClick(); await h.flush();
+  assert.equal(button('删除所选（0）').props.disabled, true);
+  await choose('选择 Anthropic 分组', true);
+  assert.equal(button('删除所选（3）').props.disabled, false);
+  panel.find((n) => n.type === 'input' && n.props.placeholder).props.onChange({ target: { value: 'claude' } });
+  await h.flush();
+  assert.equal(button('删除所选（0）').props.disabled, true);
+  await choose('全选当前筛选结果', true);
+  await choose('claude-b', false);
+  button('删除所选（2）').props.onClick(); await h.flush();
+  const dialog = () => panel.find((n) => n.type?.name === 'RemoveDialog');
+  dialog().props.onClose(); await h.flush();
+  assert.deepEqual(writes(), []);
+  button('删除所选（2）').props.onClick(); await h.flush();
+  const confirm = h.mountNode(dialog());
+  assert.deepEqual(clone(confirm.find((n) => n.type === 'ul').children.map((li) => li.children[0])), ['claude-a', 'claude-c']);
+  await confirm.find((n) => n.type?.name === 'Button' && n.props.tone === 'danger').props.onClick();
+  await h.flush();
+  assert.deepEqual(writes(), [{ revision: 1, channelId: 'b', remove: ['claude-a', 'claude-c'], clearOverrides: false }]);
+  await button('撤销').props.onClick(); await h.flush();
+  assert.deepEqual(writes().slice(1), [{ revision: 2, channelId: 'b', add: ['claude-a', 'claude-c'] }]);
 });
