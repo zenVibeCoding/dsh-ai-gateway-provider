@@ -88,6 +88,8 @@ Opening the settings page reads no model catalog. The page snapshot carries the 
 
 ## Model capabilities and controls
 
+**Manage models** lets you select individual models, a vendor group, or all results matching the current search and type filter. Review the IDs and confirm to remove them from this gateway’s list. Bulk removal keeps custom parameters, and **Undo** restores the whole selection.
+
 **Sync data** reloads the currently viewed gateway's model capabilities even when no settings changed. **Fetch models** also refreshes that gateway's capabilities after discovery, including in automatic mode when every discovered model is already enabled. Neither action requires reopening settings; periodic background snapshots still do not fetch model catalogs.
 
 Fetching a model list also resolves per-model reasoning levels and speed tiers. Reasoning resolution prefers manual mappings, then gateway `supported_reasoning_levels` / `default_reasoning_level`, then pi-ai's bundled catalog or family defaults. Those fallbacks are model metadata, **not gateway declarations**; unrecognised support remains unknown. `supports_reasoning_effort_updates` only says whether a running turn may change its level (Claude answers `false`), so it never blanks the level selector. A resolved model also keeps pi-ai's own `compat` block for that id (for example `forceAdaptiveThinking`), so a level reaches the upstream as an adaptive effort rather than a thinking-token budget. Only per-model `service_tiers` / `supported_service_tiers` establish speed declarations. Discovery never sends billed model probes.

@@ -116,6 +116,9 @@ window.__ModuleLoader__.load({
       paidConfirm: '确认并测试', unsupportedTest: '此类型模型暂不支持测试',
       batchTitle: '批量测试对话模型', batchHint: (n) => `将测试 ${n} 个对话模型，每个发送一次极短请求（每次产生少量费用），最多同时 3 个；停止后不再发送后续请求，已发送的请求仍会完成并可能计费。`,
       batchStart: '开始测试', batchProgress: (d, n) => `已测试 ${d}/${n}`, batchDone: (ok, fail) => `完成：${ok} 个可用，${fail} 个失败`, batchNone: '当前筛选下没有对话模型',
+      manageModels: '批量管理', selectFiltered: '全选当前筛选结果', selectGroup: (name) => `选择 ${name} 分组`,
+      removeSelected: (n) => `删除所选（${n}）`, bulkRemoveTitle: (n) => `删除所选的 ${n} 个模型？`, modelsRemoved: (n) => `已删除 ${n} 个模型`,
+      bulkRemoveHint: '只从此渠道的清单中移除所选模型，保留自定义参数。网关和其他渠道不受影响。', bulkLimit: '一次最多删除 1000 个模型，请缩小选择范围。',
       removeModel: '删除', removeTitle: '从此渠道删除模型', removeHint: '只从此渠道的清单中移除，不影响网关和其他渠道。',
       keepParams: '保留此模型的自定义参数（以后重新添加时恢复）', removeConfirm: '删除', modelRemoved: (id) => `已删除 ${id}`, undo: '撤销', undone: '已恢复',
       manualTitle: '手动添加模型', manualHint: '用于网关目录里没有列出、但可以调用的模型。', modelId: '模型 ID', modelIdRequired: '请填写模型 ID',
@@ -232,6 +235,9 @@ window.__ModuleLoader__.load({
       paidConfirm: 'Confirm and test', unsupportedTest: 'Testing is not available for this model type',
       batchTitle: 'Test chat models', batchHint: (n) => `Tests ${n} chat models with one tiny request each (each is billed a small amount), 3 at a time. Stop prevents queued calls; already sent requests finish and may be billed.`,
       batchStart: 'Start', batchProgress: (d, n) => `Tested ${d}/${n}`, batchDone: (ok, fail) => `Done: ${ok} working, ${fail} failed`, batchNone: 'No chat models in the current filter',
+      manageModels: 'Manage models', selectFiltered: 'Select all matches', selectGroup: (name) => `Select ${name} group`,
+      removeSelected: (n) => `Remove selected (${n})`, bulkRemoveTitle: (n) => `Remove ${n} selected model${n === 1 ? '' : 's'}?`, modelsRemoved: (n) => `Removed ${n} model${n === 1 ? '' : 's'}`,
+      bulkRemoveHint: 'Removes the selected models from this list and keeps their custom parameters. The gateway and other gateways are unaffected.', bulkLimit: 'Select at most 1000 models to remove at once.',
       removeModel: 'Remove', removeTitle: 'Remove model from this gateway', removeHint: 'Removes it from this gateway\'s list only. The gateway and other gateways are unaffected.',
       keepParams: 'Keep this model\'s custom parameters (restored if you add it again)', removeConfirm: 'Remove', modelRemoved: (id) => `Removed ${id}`, undo: 'Undo', undone: 'Restored',
       manualTitle: 'Add a model manually', manualHint: 'For models the gateway can call but does not list.', modelId: 'Model ID', modelIdRequired: 'Enter a model ID',
@@ -385,6 +391,7 @@ window.__ModuleLoader__.load({
       .nas-summary{display:grid;grid-template-columns:1.1fr 1fr .85fr;border:1px solid var(--nas-line);border-radius:11px;background:var(--nas-bg);margin-bottom:22px;overflow:hidden}.nas-stat{padding:16px 19px;min-width:0}.nas-stat+.nas-stat{border-left:1px solid var(--nas-line)}.nas-stat-label{font-size:11px;color:var(--nas-sub);margin-bottom:7px}.nas-stat-value{font-size:21px;font-variant-numeric:tabular-nums;line-height:1.3;letter-spacing:-.4px;overflow-wrap:anywhere}.nas-stat-value.name{font-size:17px;font-weight:600}.nas-stat-foot{font-size:11px;color:var(--nas-sub);margin-top:5px;overflow-wrap:anywhere}
       .nas-tabs{display:flex;gap:24px;border-bottom:1px solid var(--nas-line);margin-bottom:18px}.nas-tab{display:flex;align-items:center;gap:7px;padding:10px 1px 12px;background:transparent;border:0;border-bottom:2px solid transparent;color:var(--nas-sub);font-weight:500}.nas-tab.selected{color:var(--nas-text);border-bottom-color:var(--nas-brand)}.nas-count{font-size:10px;min-width:18px;padding:0 5px;background:var(--nas-raised);border-radius:4px;color:var(--nas-sub);font-variant-numeric:tabular-nums}.nas-section-intro{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 15px}.nas-section-intro p{margin:0;color:var(--nas-sub);font-size:12px;max-width:660px}
       .nas-channels{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}.nas-channel{position:relative;border:1px solid var(--nas-line);border-radius:10px;background:var(--nas-bg);padding:16px;min-width:0;display:flex;flex-direction:column;gap:13px}.nas-channel.is-active{border-color:var(--nas-brand);box-shadow:inset 3px 0 var(--nas-brand)}.nas-channel-top{display:flex;align-items:center;gap:10px}.nas-channel-mark{width:34px;height:34px;border-radius:8px;background:var(--nas-raised);color:var(--nas-sub);display:flex;align-items:center;justify-content:center;flex-shrink:0}.nas-channel.is-active .nas-channel-mark{color:var(--nas-brand)}.nas-channel-title{flex:1;min-width:0}.nas-channel-title strong{font-size:14px;font-weight:600;display:block;overflow-wrap:anywhere}.nas-url{font-size:11px;color:var(--nas-sub);overflow-wrap:anywhere;line-height:1.5}.nas-channel-meta{display:flex;align-items:center;flex-wrap:wrap;gap:7px;font-size:11px;color:var(--nas-sub)}.nas-dot{width:5px;height:5px;border-radius:50%;background:var(--nas-sub);display:inline-block;flex-shrink:0}.nas-dot.ok{background:var(--dsw-alias-state-success-primary)}.nas-dot.warn{background:var(--dsw-alias-state-warn-primary)}.nas-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;line-height:18px;border-radius:4px;padding:0 6px;background:var(--nas-raised);color:var(--nas-sub);white-space:nowrap}.nas-badge.active{color:var(--nas-brand);background:color-mix(in srgb,var(--nas-brand) 9%,transparent)}.nas-badge.warn{color:var(--dsw-alias-state-warn-primary)}.nas-badge.good{color:var(--dsw-alias-state-success-primary)}.nas-badge.error{color:var(--dsw-alias-state-error-primary)}.nas-channel-quota{font-size:19px;letter-spacing:-.3px;font-variant-numeric:tabular-nums}.nas-channel-bottom{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--nas-line);padding-top:12px;margin-top:auto;gap:10px}.nas-note{display:flex;gap:7px;align-items:flex-start;color:var(--nas-sub);font-size:11px;line-height:1.6;margin-top:14px}.nas-note svg{flex-shrink:0;margin-top:2px}.nas-empty{padding:36px 20px;border:1px dashed var(--nas-line);border-radius:10px;text-align:center;color:var(--nas-sub);font-size:13px}.nas-empty svg{display:block;margin:0 auto 10px}.nas-empty strong{display:block;color:var(--nas-text);font-weight:500;margin:8px 0}.nas-error{border:1px solid color-mix(in srgb,var(--dsw-alias-state-error-primary) 30%,transparent);color:var(--dsw-alias-state-error-primary);background:var(--nas-bg);padding:10px 12px;border-radius:7px;font-size:12px;overflow-wrap:anywhere;white-space:pre-wrap}.nas-feedback{display:flex;align-items:center;gap:7px;border:1px solid var(--nas-line);padding:9px 12px;border-radius:7px;color:var(--dsw-alias-state-success-primary);font-size:12px;margin-bottom:15px}
+      .nas-select-box{accent-color:var(--nas-brand);flex:none}.nas-group-head>.nas-select-box{margin-left:12px}.nas-remove-list{max-height:12em;overflow:auto;overflow-wrap:anywhere;font-size:12px}
       .nas-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:12px}.nas-search{display:flex;align-items:center;gap:8px;flex:1;min-width:180px;border:1px solid var(--nas-line);background:var(--nas-bg);padding:0 10px;border-radius:7px;color:var(--nas-sub)}.nas-search input{border:0;outline:0;background:transparent;padding:7px 0;color:var(--nas-text);width:100%;font-size:12px;min-width:0}.nas-search:focus-within{border-color:var(--nas-brand);box-shadow:0 0 0 3px color-mix(in srgb,var(--nas-brand) 14%,transparent)}.nas-search input:focus,.nas-search input:focus-visible{outline:0}.nas-filter{display:flex;gap:3px;flex-wrap:wrap}.nas-filter button{border:0;background:transparent;border-radius:5px;padding:5px 8px;color:var(--nas-sub);font-size:12px}.nas-filter button[aria-pressed=true]{background:var(--nas-raised);color:var(--nas-text)}.nas-models{border:1px solid var(--nas-line);border-radius:9px}.nas-model-head.v2{border-radius:8px 8px 0 0}.nas-model-row.v2:last-child{border-radius:0 0 8px 8px}.nas-model-head,.nas-model-row{display:grid;grid-template-columns:minmax(150px,1.25fr) minmax(150px,1.1fr) minmax(90px,.7fr) 32px;gap:16px;align-items:center;padding:11px 14px}.nas-model-head{background:var(--nas-raised);font-size:11px;color:var(--nas-sub);padding-top:8px;padding-bottom:8px}.nas-model-row+.nas-model-row{border-top:1px solid var(--nas-line)}.nas-model-row{background:var(--nas-bg)}.nas-model-name{font-weight:500;font-size:12px;overflow-wrap:anywhere;line-height:1.55}.nas-model-badges{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}.nas-model-cap{font-size:11px;color:var(--nas-sub)}.nas-model-cap strong{font-weight:550;color:var(--nas-text);font-variant-numeric:tabular-nums}.nas-model-source{font-size:11px;color:var(--nas-sub)}.nas-speed-badge{flex-shrink:0;display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:550;color:var(--nas-brand);border:1px solid color-mix(in srgb,var(--nas-brand) 35%,transparent);border-radius:4px;padding:0 5px;margin-left:6px;white-space:nowrap}.nas-speed-badge.manual{color:var(--dsw-alias-state-warn-primary);border-color:color-mix(in srgb,var(--dsw-alias-state-warn-primary) 40%,transparent);border-style:dashed}.nas-tier-verdict{display:inline-flex;align-items:center;gap:1px;font-size:10px;font-weight:600}.nas-tier-verdict.verified{color:var(--dsw-alias-state-success-primary)}.nas-tier-verdict.downgraded{color:var(--dsw-alias-state-warn-primary)}.nas-tier-verdict.unconfirmed{color:var(--nas-sub)}.nas-hide>.nas-model-identity,.nas-hide>.nas-model-cap,.nas-hide>.nas-test-cell{opacity:.5}
       .nas-hide .nas-model-name{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--nas-sub) 60%,transparent)}.nas-model-sub{font-size:10px;color:var(--nas-sub);margin-top:2px}.nas-settings-foot{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:8px;color:var(--nas-sub);font-size:10px;border-top:1px solid var(--nas-line);padding-top:12px;margin-top:22px}.nas-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}.nas-gallery figure{margin:0;border:1px solid var(--nas-line);border-radius:8px;overflow:hidden}.nas-gallery img,.nas-gallery video{display:block;width:100%;height:150px;object-fit:contain;background:var(--nas-raised)}.nas-gallery figcaption{padding:8px;font-size:11px;color:var(--nas-sub);overflow-wrap:anywhere}.nas-task{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--nas-line)}
       .nas-dialog{max-width:580px;width:calc(100% - 40px);max-height:calc(100vh - 64px);border:1px solid var(--nas-line);border-radius:12px;background:var(--dsw-alias-bg-overlay);color:var(--nas-text);padding:0;overflow:auto;box-shadow:0 16px 60px color-mix(in srgb,var(--dsw-alias-label-primary) 16%,transparent)}.nas-dialog::backdrop{background:color-mix(in srgb,var(--dsw-alias-bg-base) 60%,transparent);backdrop-filter:blur(3px)}.nas-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:22px 24px 14px}.nas-dialog-head h3{margin:0 0 5px;font-size:17px;font-weight:600}.nas-dialog-body{padding:4px 24px 20px}.nas-dialog-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:14px 24px;border-top:1px solid var(--nas-line);background:var(--nas-bg)}.nas-field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px;font-size:12px}.nas-field>label{font-weight:500}.nas-field small{font-size:11px;color:var(--nas-sub);font-weight:400}.nas-field input:not([type=checkbox]),.nas-field select{width:100%;height:35px;border:1px solid var(--nas-line);border-radius:6px;background:var(--nas-bg);color:var(--nas-text);padding:6px 10px;min-width:0;outline:none}.nas-field input:focus,.nas-field select:focus{border-color:var(--nas-brand)}.nas-fieldset{border:0;padding:0;margin:0 0 16px}.nas-fieldset legend{font-weight:500;font-size:12px;margin-bottom:8px}.nas-checks{display:flex;gap:12px;flex-wrap:wrap}.nas-check{display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;color:var(--nas-text);font-weight:400}.nas-check input{accent-color:var(--nas-brand);width:14px;height:14px;margin:0}.nas-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}.nas-field-error{color:var(--dsw-alias-state-error-primary);font-size:11px}.nas-test{border:1px solid var(--nas-line);border-radius:7px;padding:11px 12px;font-size:12px;margin-top:12px}.nas-test.ok strong{color:var(--dsw-alias-state-success-primary)}.nas-test.bad{color:var(--dsw-alias-state-error-primary)}.nas-test small{display:block;color:var(--nas-sub);margin-top:3px}.nas-prompt{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--nas-sub);margin-top:8px}.nas-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--nas-sub);background:transparent;border:1px solid var(--nas-line);border-radius:7px;padding:2px 8px;cursor:pointer}.nas-preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.nas-preview img,.nas-preview video{display:block;max-width:100%;max-height:280px;border-radius:8px;border:1px solid var(--nas-line)}.nas-spin{animation:nas-spin .9s linear infinite}@keyframes nas-spin{to{transform:rotate(360deg)}}
@@ -1427,19 +1434,23 @@ window.__ModuleLoader__.load({
                   badges));
             })))));
     }
-    function RemoveDialog({ channel, model, revision, onClose, onDone }) {
+    function RemoveDialog({ channel, model, ids = [model.id], revision, onClose, onDone }) {
       const t = useT(); const [keep, setKeep] = useState(true); const a = useAction();
-      const hasOverride = model.override && Object.keys(model.override).some((k) => k !== 'custom');
+      // Bulk removal only edits list membership. Row removal also offers to clear parameters.
+      const hasOverride = model?.override && Object.keys(model.override).some((k) => k !== 'custom');
       const go = () => a.run(async () => {
-        await store.mutate('models/set', { revision, channelId: channel.id, remove: [model.id], clearOverrides: !keep || !hasOverride });
-        onDone(model, keep && hasOverride ? null : model.override);
+        const clearOverrides = Boolean(model && (!keep || !hasOverride));
+        await store.mutate('models/set', { revision, channelId: channel.id, remove: ids, clearOverrides });
+        const overrides = clearOverrides && Object.keys(model.override ?? {}).length ? { [model.id]: model.override } : undefined;
+        onDone({ channelId: channel.id, ids, overrides });
       });
-      return h(Modal, { title: t('removeTitle'), hint: `${channel.name} / ${model.id}`, onClose, busy: a.pending,
+      return h(Modal, { title: model ? t('removeTitle') : tf('bulkRemoveTitle', ids.length), hint: model ? `${channel.name} / ${model.id}` : channel.name, onClose, busy: a.pending,
         footer: h('div', { className: 'nas-actions', style: { marginLeft: 'auto' } },
           h(Button, { onClick: onClose, disabled: a.pending }, t('cancel')),
           h(Button, { tone: 'danger', icon: 'trash', onClick: go, disabled: a.pending }, t('removeConfirm'))),
       },
-      h('p', { className: 'nas-sub', style: { marginTop: 0 } }, t('removeHint')),
+      h('p', { className: 'nas-sub', style: { marginTop: 0 } }, t(model ? 'removeHint' : 'bulkRemoveHint')),
+      !model && h('ul', { className: 'nas-remove-list' }, ids.map((id) => h('li', { key: id }, id))),
       hasOverride && h(Check, { checked: keep, onChange: setKeep, disabled: a.pending }, t('keepParams')),
       h(ErrorText, { text: a.error }));
     }
@@ -1497,6 +1508,23 @@ window.__ModuleLoader__.load({
       const [dialog, setDialogState] = useState(); const [undo, setUndo] = useState(); const a = useAction();
       const [grouped, setGrouped] = useState(() => { try { return localStorage.getItem('ai-gateway.groupModels') !== 'off'; } catch { return true; } });
       const [collapsed, setCollapsed] = useState(() => new Set());
+      // null means normal browsing; changing filters or leaving this channel starts a fresh selection.
+      const [selected, setSelected] = useState(null);
+      const resetSelection = () => setSelected((prev) => prev && new Set());
+      const selectionBox = (rows, label) => {
+        const count = rows.filter((m) => selected.has(m.id)).length;
+        return h('input', { type: 'checkbox', className: 'nas-select-box', 'aria-label': label,
+          checked: rows.length > 0 && count === rows.length, disabled: !rows.length,
+          ref: (el) => { if (el) el.indeterminate = count > 0 && count < rows.length; },
+          onChange: (event) => {
+            const checked = event.target.checked;
+            setSelected((prev) => {
+              const next = new Set(prev);
+              for (const { id } of rows) { if (checked) next.add(id); else next.delete(id); }
+              return next;
+            });
+          } });
+      };
       const toggleGrouped = () => setGrouped((on) => { try { localStorage.setItem('ai-gateway.groupModels', on ? 'off' : 'on'); } catch { /* private mode */ } return !on; });
       const toggleGroup = (key) => setCollapsed((prev) => { const next = new Set(prev); if (next.has(key)) next.delete(key); else next.add(key); return next; });
       // "Hidden" only keeps a model out of the chat picker. The list never moves: the row
@@ -1509,6 +1537,7 @@ window.__ModuleLoader__.load({
       const view = provided ?? useChannelModels(state, channel.id);
       const models = view.models?.entries || [];
       const shown = models.filter((m) => (kind === 'all' || m.kind === kind) && `${m.id} ${m.name} ${m.vendor || ''}`.toLowerCase().includes(search.toLowerCase()));
+      const selectedIds = selected ? shown.filter((m) => selected.has(m.id)).map((m) => m.id) : [];
       const kinds = ['all', ...new Set(models.map((m) => m.kind))];
       const testable = shown.filter((m) => m.kind === 'chat' && m.availability !== 'missing' && !m.hidden);
       useEffect(() => { if (!undo) return; const timer = setTimeout(() => setUndo(undefined), 8000); return () => clearTimeout(timer); }, [undo]);
@@ -1520,7 +1549,7 @@ window.__ModuleLoader__.load({
       };
       const restore = () => a.run(async () => {
         const u = undo;
-        await store.mutate('models/set', { revision: store.state.revision, channelId: u.channelId, add: [u.model.id], ...(u.override ? { overrides: { [u.model.id]: u.override } } : {}) });
+        await store.mutate('models/set', { revision: store.state.revision, channelId: u.channelId, add: u.ids, overrides: u.overrides });
         setUndo(undefined);
         notify(t('undone'));
       });
@@ -1532,17 +1561,23 @@ window.__ModuleLoader__.load({
       }
       return h(React.Fragment, null,
         h('div', { className: 'nas-toolbar' },
-          h('label', { className: 'nas-search' }, h(Icon, { name: 'search', size: 14 }), h('input', { value: search, onChange: (e) => setSearch(e.target.value), placeholder: t('filter'), 'aria-label': t('filter') })),
-          h('div', { className: 'nas-actions' },
+          h('label', { className: 'nas-search' }, h(Icon, { name: 'search', size: 14 }), h('input', { value: search, onChange: (e) => { setSearch(e.target.value); resetSelection(); }, placeholder: t('filter'), 'aria-label': t('filter') })),
+          selected ? h('div', { className: 'nas-actions' },
+            h('label', { className: 'nas-check' }, selectionBox(shown, t('selectFiltered')), t('selectFiltered')),
+            h(Button, { small: true, tone: 'danger', icon: 'trash', disabled: store.busy || view.loading || !selectedIds.length || selectedIds.length > 1000,
+              onClick: () => setDialog({ type: 'remove', ids: selectedIds }) }, tf('removeSelected', selectedIds.length)),
+            h(Button, { small: true, onClick: () => setSelected(null) }, t('cancel'))) : h('div', { className: 'nas-actions' },
+            h(Button, { small: true, icon: 'check', onClick: () => setSelected(new Set()), disabled: !models.length }, t('manageModels')),
             h(Button, { small: true, icon: 'download', onClick: () => setDialog({ type: 'discover' }), disabled: store.busy }, t('fetchModels')),
             h(Button, { small: true, icon: 'bolt', onClick: () => setDialog({ type: 'batch', models: testable }), disabled: store.busy }, t('batchTest')),
             h(Button, { small: true, icon: 'plus', tone: 'ghost', onClick: () => setDialog({ type: 'manual' }), disabled: store.busy }, t('addManual')))),
         h('div', { className: 'nas-toolbar', style: { marginTop: -4 } },
-          h('div', { className: 'nas-filter', role: 'group', 'aria-label': t('kind') }, kinds.map((k) => h('button', { key: k, type: 'button', 'aria-pressed': kind === k, onClick: () => setKind(k) }, t(k), ' ', h('span', { className: 'nas-count' }, k === 'all' ? models.length : models.filter((m) => m.kind === k).length)))),
+          h('div', { className: 'nas-filter', role: 'group', 'aria-label': t('kind') }, kinds.map((k) => h('button', { key: k, type: 'button', 'aria-pressed': kind === k, onClick: () => { if (k !== kind) { setKind(k); resetSelection(); } } }, t(k), ' ', h('span', { className: 'nas-count' }, k === 'all' ? models.length : models.filter((m) => m.kind === k).length)))),
           h('div', { className: 'nas-view-toggles' },
             h('button', { type: 'button', className: 'nas-group-toggle', 'aria-pressed': grouped, onClick: toggleGrouped }, h(Icon, { name: 'grid', size: 13 }), t('groupByVendor')))),
         h('div', { className: 'nas-mode' }, h(Icon, { name: 'info', size: 13 }), t(listMode ? 'listModeHint' : 'autoModeHint')),
         h(ErrorText, { text: a.error }),
+        selectedIds.length > 1000 && h(ErrorText, { text: t('bulkLimit') }),
         !shown.length ? h(Empty, { title: t(models.length ? 'modelEmpty' : 'noModels'), action: !models.length ? h(Button, { icon: 'download', onClick: () => setDialog({ type: 'discover' }) }, t('fetchModels')) : null }) : h('div', { className: 'nas-models' },
           h('div', { className: 'nas-model-head v2' }, h('span', null, `${t('model')} · ${shown.length}`), h('span', null, t('capabilities')), h('span', null, t('test')), h('span')),
           (() => {
@@ -1552,6 +1587,7 @@ window.__ModuleLoader__.load({
             const modelTestTip = t(m.kind === 'chat' ? 'modelTestChatTip' : 'modelTestPaidTip');
             return h('div', { key: m.id, className: `nas-model-row v2 ${m.hidden || m.availability === 'missing' ? 'nas-hide' : ''}` },
               h('div', { className: 'nas-model-identity' },
+                selected && selectionBox([m], m.id),
                 h(VendorIcon, { vendor: m.vendor, modelId: m.id }),
                 h('span', { className: 'nas-model-name', 'data-tip': [m.name || m.id, m.id, t(m.kind), m.hidden ? t('hidden') : null, m.source?.overridden?.length ? t('overridden') : null].filter(Boolean).join('\n') }, m.name || m.id),
                 m.upstreamModel && m.upstreamModel !== m.id && h('span', { style: { display: 'inline-flex', color: 'var(--nas-sub)' }, 'data-tip': `${t('upstreamModel')}: ${m.upstreamModel}`, role: 'img', 'aria-label': `${t('upstreamModel')}: ${m.upstreamModel}` }, h(Icon, { name: 'arrow', size: 12 })),
@@ -1588,6 +1624,7 @@ window.__ModuleLoader__.load({
             const ok = tested.filter((m) => (tests.results.get(tests.key(channel.id, m.id)) ?? m.lastTest)?.ok).length;
             return h(React.Fragment, { key: g.key },
               h('div', { className: 'nas-group-head' },
+                selected && selectionBox(g.models, tf('selectGroup', g.label ?? t('groupOther'))),
                 h('button', { type: 'button', className: 'nas-group-toggle-area', 'aria-expanded': open, onClick: () => toggleGroup(g.key) },
                   h('span', { className: `nas-group-caret ${open ? 'open' : ''}`, 'aria-hidden': true }, h(Icon, { name: 'chevron', size: 12 })),
                   g.known ? h(VendorIcon, { vendor: g.label, modelId: '', size: 15 }) : h('span', { className: 'nas-vendor-mark unknown' }, h(Icon, { name: 'grid', size: 13 })),
@@ -1609,14 +1646,14 @@ window.__ModuleLoader__.load({
               open && g.models.map(renderRow));
           });
         })()),
-        undo && h('div', { className: 'nas-toast', role: 'status' }, h('span', null, tf('modelRemoved', undo.model.id)), h(Button, { small: true, onClick: restore, disabled: a.pending }, t('undo'))),
+        undo && h('div', { className: 'nas-toast', role: 'status' }, h('span', null, undo.ids.length === 1 ? tf('modelRemoved', undo.ids[0]) : tf('modelsRemoved', undo.ids.length)), h(Button, { small: true, onClick: restore, disabled: a.pending }, t('undo'))),
         dialog?.type === 'discover' && h(DiscoverDialog, { channel: dialog.channel, revision: dialog.revision, onClose: () => close(), onDone: close, onDiscovered: view.refresh }),
         dialog?.type === 'batch' && h(BatchTestDialog, { channel: dialog.channel, models: dialog.models, onClose: () => close() }),
         dialog?.type === 'paid' && h(PaidTestDialog, { channel: dialog.channel, model: dialog.model, onClose: () => close() }),
         dialog?.type === 'manual' && h(ManualAddDialog, { channel: dialog.channel, revision: dialog.revision, existing: new Set(models.map((m) => m.id)), onClose: () => close(), onDone: close }),
-        dialog?.type === 'remove' && h(RemoveDialog, { channel: dialog.channel, model: dialog.model, revision: dialog.revision,
+        dialog?.type === 'remove' && h(RemoveDialog, { channel: dialog.channel, model: dialog.model, ids: dialog.ids, revision: dialog.revision,
           onClose: () => close(),
-          onDone: (model, override) => { setDialog(undefined); setUndo({ channelId: dialog.channel.id, model, override: override && Object.keys(override).length ? override : null }); } }));
+          onDone: (removed) => { setDialog(undefined); setSelected(null); setUndo(removed); } }));
     }
     function SettingsPage() {
       const t = useT(); const { state, error, busy } = useProvider(); const a = useAction();
