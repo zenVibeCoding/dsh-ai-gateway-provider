@@ -1,17 +1,24 @@
 # 发布清单（维护者用）
 
-## 当前状态（2026-11-05）
+## 当前状态（2026-11-17）
 
 | 项目 | 状态 |
 | --- | --- |
-| 本地版本 | **0.7.2**（已发布） |
+| 本地版本 / 待发布 | **0.7.3**（`package.json` 已就位，本地改动尚未发布） |
 | npm 当前版本 | **0.7.2**（`latest`），2026-11-05 发布；以 `npm view dsh-ai-gateway-provider dist-tags --json` 与 `npm view dsh-ai-gateway-provider version` 的实际结果为准 |
-| 测试基线 | **164 项离线测试**通过（本地假网关）；每次发布前重新运行 |
+| 测试基线 | **165 项离线测试**通过（本地假网关）；每次发布前重新运行 |
 | GitHub | https://github.com/zenVibeCoding/dsh-ai-gateway-provider |
 | 插件市场 | `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 已在 main；市场版本由 `probe-npm` 从 registry 读取，发版后自动跟进 |
 | 封面 / 截图 | 保留 `assets/cover.png` 与现有截图链接；`screenshots.json` 中封面排第一。旧截图仅作说明，不保证当前编辑器与「获取信息」按钮已有截图 |
 
 本清单记录可复现的发布步骤。只有 npm registry、Git 标签和市场检查的实际结果才表示对应阶段完成；离线检查不调用真实模型。
+
+### 0.7.3 内容（按渠道批量选择并删除模型）
+
+- **「批量管理」**：模型列表进入选择模式后，可逐个勾选模型、勾选整个厂商分组，或全选当前搜索与类型筛选的结果；修改搜索词或类型筛选会清空已选项。
+- **确认框列出将删除的模型 ID**；确认后只向当前查看的渠道发送一次带 `revision` 的 `models/set`，取消不产生任何写入。一次最多删除 1000 个模型。
+- **批量删除保留自定义参数**（`clearOverrides: false`）；「撤销」用一次请求恢复整批模型。单行删除仍可选择是否清除该模型的自定义参数。
+- 来自社区 PR #3（@simmzl），`test/model-capabilities-refresh.test.js` 新增 1 项界面回归测试（分组与筛选选择、排除单行、取消不写入、在非默认渠道确认、一次撤销整批）。
 
 ### 0.7.2 内容（同步 / 获取模型后刷新能力）
 
@@ -45,14 +52,16 @@
 
 历史：**0.5.2** 隐藏模型原位置灰、封面与截图配置；**0.5.1** 单个 / 整组隐藏模型；**0.5.0** 首次公开发布。
 
-## 0.7.2 发布前核对
+## 0.7.3 发布前核对
 
-- [x] `package.json` / `index.js` VERSION / 客户端展示版本均为 `0.7.2`；依赖范围保持 DSH ≥ 0.2.1-rc.1, < 0.3.0。
-- [x] 2026-11-05 合并 PR #1 后重新运行：164 项离线测试通过，`node --check` 全部通过，中英 locale key 无差异。
+- [x] `package.json` / `index.js` VERSION / 客户端展示版本均为 `0.7.3`；依赖范围保持 DSH ≥ 0.2.1-rc.1, < 0.3.0。
+- [x] 2026-11-17 合并 PR #3 后重新运行：165 项离线测试通过，`node --check` 全部通过，中英 locale key 无差异。
 - [x] `npm pack` 产物 23 个文件；已扫描无 `.npmrc`、本地缓存、规划文件，也无 GitHub/npm 令牌或 `sk-` 形态字符串。该清单自身也在包内，所以 shasum 以最后一次 `npm publish` 输出为准，不在此写死。
 - [x] 2026-10-29 发布 0.7.1：registry `latest` 指向 0.7.1，tarball 23 个文件、shasum `c9994efc703ece9796ccca77a8b24bb0f1e5ee2a` 与 integrity 一致。
 - [x] 2026-11-05 发布 0.7.2：registry `latest` 已指向 0.7.2，重新下载 tarball 核对 23 个文件、shasum `bcc1d502d84e6ad6391061ffde031b96a837338a` 与 integrity 一致。
 - [x] Git 提交 `10fd04f` 与标签 `v0.7.2` 已推送；市场条目不变，版本由每日 `probe-npm` 跟进。
+- [ ] 执行 0.7.3 发布并核对 registry 版本、shasum 与文件清单。
+- [ ] Git 提交 / 推送、`v0.7.3` 标签。
 - [ ] 市场侧 `awesome-dsh-plugin.com/plugins.json` 跟进到 0.7.2（每日构建自动读取 registry）。
 - [ ] 市场侧 `awesome-dsh-plugin.com/plugins.json` 从 0.7.0 跟进到 0.7.1（`build-site.yml` 每日 `probe-npm` 自动读取 registry，无需人工操作）。
 
@@ -75,7 +84,7 @@ npm publish
 npm view dsh-ai-gateway-provider version
 ```
 
-npm 的认证 / 2FA 提示按交互流程完成。**只有发布成功后**，registry 版本才应为 `0.7.2`；随后下载 tarball 核对文件完整性及无凭据，再按仓库流程提交 / 推送并创建 `v0.7.2` 标签。这里不重建已有远端仓库。
+npm 的认证 / 2FA 提示按交互流程完成。**只有发布成功后**，registry 版本才应为 `0.7.3`；随后下载 tarball 核对文件完整性及无凭据，再按仓库流程提交 / 推送并创建 `v0.7.3` 标签。这里不重建已有远端仓库。
 
 市场条目位于 `docs/market-entry.yml`，与市场 main 上的 `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 保持一致；条目本身不含版本号，市场侧的版本与发布时间由 `scripts/probe-npm.mjs` 从 registry 读取，因此发版后无需改条目。收录要求包括 `dsh.bundle`、仓库满 24 小时及已有提交，门禁状态以市场实际检查为准。
 
