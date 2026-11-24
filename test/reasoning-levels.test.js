@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 process.env.DSH_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'newapi-provider-levels-'));
-const { LevelCatalog, levelsFromMap, mapFromLevels, resolveReasoningLevels, gatewayReasoning, thinkingCompat, compatForProtocol, LEVELS } = await import('../lib/levels.js');
+const { LevelCatalog, levelsFromMap, mapFromLevels, resolveReasoningLevels, gatewayReasoning, thinkingCompat, compatForProtocol, claudeThinkingMode, LEVELS } = await import('../lib/levels.js');
 const { Catalog } = await import('../lib/catalog.js');
 
 test('gateway reasoning is unknown without explicit valid per-model metadata', () => {
@@ -367,4 +367,41 @@ test('compatForProtocol adds forceAdaptiveThinking for adaptive models routed ov
     }),
     undefined,
   );
+});
+
+// Anthropic: Claude 4.5 and earlier (Opus 4.1, Sonnet 4, Opus 4) accept budget thinking
+// only and reject `thinking: { type: "adaptive" }` with a 400; 4.6+ is adaptive. A date
+// suffix must never be read as the minor version (`-20250514` is not 4.20).
+const BUDGET_CLAUDE = [
+  'claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-sonnet-4-0', 'claude-opus-4-0',
+  'claude-opus-4-1-20250805', 'claude-opus-4-1', 'claude-sonnet-4-5-20250929', 'claude-sonnet-4.5',
+  'claude-opus-4-5', 'claude-haiku-4-5', 'claude-3-7-sonnet-20250219', 'anthropic/claude-sonnet-4-20250514',
+];
+const ADAPTIVE_CLAUDE = [
+  'claude-opus-4-6', 'claude-sonnet-4-6', 'claude-opus-4.7', 'claude-opus-4-8-20260101', 'claude-sonnet-5',
+  'claude-opus-5-5', 'claude-sonnet-5-5-high', 'claude-haiku-5-5', 'claude-fable-5-2', 'claude-mythos-5',
+];
+
+test('Claude thinking mode follows the version, never a date suffix', () => {
+  for (const id of BUDGET_CLAUDE) assert.equal(claudeThinkingMode(id), 'budget', id);
+  for (const id of ADAPTIVE_CLAUDE) assert.equal(claudeThinkingMode(id), 'adaptive', id);
+  assert.equal(claudeThinkingMode('gemini-3-pro'), undefined);
+  assert.equal(claudeThinkingMode('claude-instant'), undefined);
+});
+
+test('budget-only Claude never receives adaptive thinking or adaptive-only levels', async () => {
+  const catalog = familyOnly();
+  for (const id of BUDGET_CLAUDE) {
+    const { levels } = await resolveReasoningLevels({ id, catalog });
+    assert.deepEqual(levels, ['off', 'minimal', 'low', 'medium', 'high'], id);
+    // Even when a gateway or the user lists xhigh/max, the wire mode stays budget.
+    assert.equal(compatForProtocol('anthropic-messages', { id, upstreamModel: id, reasoning: true, reasoningLevels: ['low', 'high', 'xhigh', 'max'] }), undefined, id);
+  }
+  for (const id of ADAPTIVE_CLAUDE) {
+    const { levels } = await resolveReasoningLevels({ id, catalog });
+    assert.deepEqual(levels, ['low', 'medium', 'high', 'xhigh', 'max'], id);
+    assert.deepEqual(compatForProtocol('anthropic-messages', { id, upstreamModel: id, reasoning: true, reasoningLevels: ['low', 'medium', 'high'] }), { forceAdaptiveThinking: true }, id);
+  }
+  // A shipped catalog entry still wins over the version rule.
+  assert.deepEqual(compatForProtocol('anthropic-messages', { id: 'claude-sonnet-4-20250514', reasoning: true, reasoningLevels: [], piCompat: { forceAdaptiveThinking: true } }), { forceAdaptiveThinking: true });
 });
