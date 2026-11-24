@@ -1,17 +1,26 @@
 # 发布清单（维护者用）
 
-## 当前状态（2026-11-17）
+## 当前状态（2026-11-25）
 
 | 项目 | 状态 |
 | --- | --- |
-| 本地版本 | **0.7.3**（已发布） |
+| 本地版本 / 待发布 | **0.7.4**（`package.json` 已就位，本地改动尚未发布） |
 | npm 当前版本 | **0.7.3**（`latest`），2026-11-17 发布；以 `npm view dsh-ai-gateway-provider dist-tags --json` 与 `npm view dsh-ai-gateway-provider version` 的实际结果为准 |
-| 测试基线 | **165 项离线测试**通过（本地假网关）；每次发布前重新运行 |
+| 测试基线 | **174 项离线测试**通过（本地假网关）；每次发布前重新运行 |
 | GitHub | https://github.com/zenVibeCoding/dsh-ai-gateway-provider |
 | 插件市场 | `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 已在 main；市场版本由 `probe-npm` 从 registry 读取，发版后自动跟进 |
 | 封面 / 截图 | 保留 `assets/cover.png` 与现有截图链接；`screenshots.json` 中封面排第一。旧截图仅作说明，不保证当前编辑器与「获取信息」按钮已有截图 |
 
 本清单记录可复现的发布步骤。只有 npm registry、Git 标签和市场检查的实际结果才表示对应阶段完成；离线检查不调用真实模型。
+
+### 0.7.4 内容（`native_endpoints`、网关模型元数据、Anthropic 自适应思考）
+
+- **按 `native_endpoints` 解析协议**：`supported_endpoint_types` 仍优先；没有时把 `native_endpoints` 路径映射为协议（`/v1/chat/completions` → OpenAI Chat、`/v1/responses` → Responses、`/v1/messages` → Anthropic、`/v1beta/models…` / `:generateContent` → Gemini），忽略非对话端点。Magpie 等多协议网关不再一律退回 Chat Completions。
+- **采纳 `/v1/models` 的逐模型上限与模态**：`context_window` / `context_length` / `max_input_tokens`、`max_output_tokens` / `max_completion_tokens`、`modalities.input` / `.output` 经校验后生效；优先级为用户覆盖 > 网关 `/v1/models` > models.dev > 默认值。
+- **跨协议的自适应思考**：经 `/v1/messages` 桥接的推理模型（Gemini 3+、GLM-5.2+，或声明了 `xhigh` / `max` 的模型）带 `forceAdaptiveThinking`，档位按 effort 下发，不再被压成 `high`；pi-ai 目录里显式的 `forceAdaptiveThinking` 不被覆盖。
+- **识别 Magpie**：`GET /` 返回 `{"name":"magpie","apis":[…]}` 时显示 Magpie 类型、图标与版本。
+- **修复：老款 Claude 不再被发成自适应思考**（合并后跟进的提交）。原判断把日期后缀当成了小版本号（`claude-sonnet-4-20250514` 被读成 4.20），会对 Sonnet 4 / Opus 4 发 `thinking: {type: "adaptive"}`，Anthropic 会以 400 拒绝；档位默认值也会给 Opus 4 / 4.1 / 4.5、Sonnet 4.5 错误地提供 `xhigh` / `max`。现在由 `claudeThinkingMode()` 只按版本号判断：4.6 及以后与 Fable / Mythos 为自适应，4.5 及以前一律走预算模式。
+- 来自社区 PR #4（@MrHuangJser），新增 `test/native-endpoints.test.js` 并扩充探测与推理档位测试；跟进修复另增 2 项回归测试。
 
 ### 0.7.3 内容（按渠道批量选择并删除模型）
 
@@ -52,19 +61,21 @@
 
 历史：**0.5.2** 隐藏模型原位置灰、封面与截图配置；**0.5.1** 单个 / 整组隐藏模型；**0.5.0** 首次公开发布。
 
-## 0.7.3 发布前核对
+## 0.7.4 发布前核对
 
-- [x] `package.json` / `index.js` VERSION / 客户端展示版本均为 `0.7.3`；依赖范围保持 DSH ≥ 0.2.1-rc.1, < 0.3.0。
-- [x] 2026-11-17 合并 PR #3 后重新运行：165 项离线测试通过，`node --check` 全部通过，中英 locale key 无差异。
+- [x] `package.json` / `index.js` VERSION / 客户端展示版本均为 `0.7.4`；依赖范围保持 DSH ≥ 0.2.1-rc.1, < 0.3.0。
+- [x] 2026-11-25 合并 PR #4 并提交跟进修复后重新运行：174 项离线测试通过，`node --check` 全部通过，中英 locale key 无差异。
+- [x] 用 pi-ai 1.6.0 的真实目录端到端核对：Claude 4.5 及以前（含带日期的 Sonnet 4 / Opus 4 / Opus 4.1）走预算模式、无 `xhigh` / `max`；4.6+ 自适应；桥接的 Gemini 3+ / GLM-5.2 保持自适应。
 - [x] `npm pack` 产物 23 个文件；已扫描无 `.npmrc`、本地缓存、规划文件，也无 GitHub/npm 令牌或 `sk-` 形态字符串。该清单自身也在包内，所以 shasum 以最后一次 `npm publish` 输出为准，不在此写死。
 - [x] 2026-10-29 发布 0.7.1：registry `latest` 指向 0.7.1，tarball 23 个文件、shasum `c9994efc703ece9796ccca77a8b24bb0f1e5ee2a` 与 integrity 一致。
 - [x] 2026-11-05 发布 0.7.2：registry `latest` 已指向 0.7.2，重新下载 tarball 核对 23 个文件、shasum `bcc1d502d84e6ad6391061ffde031b96a837338a` 与 integrity 一致。
 - [x] Git 提交 `10fd04f` 与标签 `v0.7.2` 已推送；市场条目不变，版本由每日 `probe-npm` 跟进。
 - [x] 2026-11-17 发布 0.7.3：registry `latest` 已指向 0.7.3，重新下载 tarball 核对 23 个文件、shasum `0f0b5ac617219c86769f428fd9aa3796b0c3e091`，内容与本地打包一致。
 - [x] Git 提交 `3614df4` 与标签 `v0.7.3` 已推送；市场条目不变，版本由每日 `probe-npm` 跟进。
-- [ ] 市场侧 `awesome-dsh-plugin.com/plugins.json` 跟进到 0.7.3（每日构建自动读取 registry）。
-- [ ] 市场侧 `awesome-dsh-plugin.com/plugins.json` 跟进到 0.7.2（每日构建自动读取 registry）。
-- [ ] 市场侧 `awesome-dsh-plugin.com/plugins.json` 从 0.7.0 跟进到 0.7.1（`build-site.yml` 每日 `probe-npm` 自动读取 registry，无需人工操作）。
+- [x] 市场侧已跟进到 0.7.3（2026-11-25 核对 `dshmarket.com/index.json`）。
+- [ ] 执行 0.7.4 发布并核对 registry 版本、shasum 与文件清单。
+- [ ] Git 提交 / 推送、`v0.7.4` 标签。
+- [ ] 市场侧跟进到 0.7.4（每日构建自动读取 registry）。
 
 ### 离线 / 打包检查
 
@@ -85,7 +96,7 @@ npm publish
 npm view dsh-ai-gateway-provider version
 ```
 
-npm 的认证 / 2FA 提示按交互流程完成。**只有发布成功后**，registry 版本才应为 `0.7.3`；随后下载 tarball 核对文件完整性及无凭据，再按仓库流程提交 / 推送并创建 `v0.7.3` 标签。这里不重建已有远端仓库。
+npm 的认证 / 2FA 提示按交互流程完成。**只有发布成功后**，registry 版本才应为 `0.7.4`；随后下载 tarball 核对文件完整性及无凭据，再按仓库流程提交 / 推送并创建 `v0.7.4` 标签。这里不重建已有远端仓库。
 
 市场条目位于 `docs/market-entry.yml`，与市场 main 上的 `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 保持一致；条目本身不含版本号，市场侧的版本与发布时间由 `scripts/probe-npm.mjs` 从 registry 读取，因此发版后无需改条目。收录要求包括 `dsh.bundle`、仓库满 24 小时及已有提交，门禁状态以市场实际检查为准。
 
