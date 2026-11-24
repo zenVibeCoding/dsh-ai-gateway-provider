@@ -45,9 +45,10 @@ The plugin never needs to recognise a vendor — recognition only decides the ic
 | New API / one-api / done-hub / one-hub / Veloera / VoAPI | `GET /api/status` (`system_name`, `quota_per_unit`) | `GET /api/usage/token/` |
 | LiteLLM | `GET /key/info` answering | key budget (`spend` / `max_budget`) |
 | CLIProxyAPI | `GET /` banner `CLI Proxy API Server` | none |
+| Magpie | `GET /` JSON `{ "name": "magpie", "apis": […] }` | none |
 | Anything else that is OpenAI-compatible | `GET /v1/models` answering | none |
 
-Wire protocols per model: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Gemini. The gateway's `supported_endpoint_types` decides; the model editor can override.
+Wire protocols per model: OpenAI Chat Completions, OpenAI Responses, Anthropic Messages, Gemini. The gateway's `supported_endpoint_types` or `native_endpoints` decides; the model editor can override.
 
 ## Several gateways, one picker
 

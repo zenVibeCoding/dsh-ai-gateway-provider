@@ -340,6 +340,7 @@ window.__ModuleLoader__.load({
       'new-api': { label: 'New API', svg: '<rect x="3" y="4" width="18" height="16" rx="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 15V9l4 6V9M15.5 9v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' },
       cliproxy: { label: 'CLIProxyAPI', svg: '<path d="M4 7l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 16h4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="19" cy="7" r="2" fill="currentColor"/><path d="M19 9v3a3 3 0 0 1-3 3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>' },
       litellm: { label: 'LiteLLM', svg: '<path d="M12 3.5a5.5 5.5 0 0 0-3.2 10l.7 2.5h5l.7-2.5A5.5 5.5 0 0 0 12 3.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 19h5M10.5 21.5h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' },
+      magpie: { label: 'Magpie', svg: '<path d="M4 17c2.5-6.5 6.5-10.5 12-11.5l1.5 2 2.5.5-2 2.5c-.8 5.2-4.5 8.5-10.5 9.5l-3.5-3Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="15" cy="9.5" r="1" fill="currentColor"/>' },
     };
     function GatewayMark({ family, icon, active, size = 16, label }) {
       const f = GATEWAY_FAMILIES[family];

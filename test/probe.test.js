@@ -324,3 +324,30 @@ test('probe: without a site title the backend name, then the host, is suggested'
     assert.equal(r.backend.suggestedName, bare.base.replace('http://', ''));
   } finally { await bare.close(); }
 });
+
+test('Magpie: recognised from GET / and native_endpoints are counted as wire protocols', async () => {
+  const gw = await fakeGateway({
+    'GET /': () => [200, { name: 'magpie', version: '0.1.4749', apis: ['/v1/chat/completions', '/v1/responses', '/v1/messages', '/v1beta/models/{model}:generateContent'] }],
+    'GET /v1/models': models([
+      { id: 'agy-cli/gemini-4-neon', native_endpoints: ['/v1/messages'] },
+      { id: 'codex/gpt-5.6-terra', native_endpoints: ['/v1/responses'] },
+      { id: 'copilot/claude-fable-5.1', native_endpoints: ['/v1/chat/completions', '/v1/messages'] },
+    ]),
+  });
+  try {
+    const r = await probe({ baseURL: gw.base, apiKey: KEY });
+    assert.equal(r.usable, true);
+    assert.equal(r.backend.family, 'magpie');
+    assert.equal(r.backend.name, 'Magpie');
+    assert.equal(r.backend.version, '0.1.4749');
+    assert.equal(r.backend.suggestedName, 'Magpie');
+    assert.deepEqual(r.backend.info.endpoints, ['/v1/chat/completions', '/v1/responses', '/v1/messages', '/v1beta/models/{model}:generateContent']);
+    assert.deepEqual(r.protocols, { anthropic: 2, 'openai-response': 1, openai: 1 });
+    assert.equal(r.notes.includes('protocol-unreported'), false);
+
+    const id = await identify({ baseURL: gw.base });
+    assert.equal(id.family, 'magpie');
+    assert.equal(id.version, '0.1.4749');
+    assert.ok(gw.seen.filter((h) => h.path === '/' || h.path === '/api/status').every((h) => h.auth === null), 'identification sent a credential');
+  } finally { await gw.close(); }
+});
