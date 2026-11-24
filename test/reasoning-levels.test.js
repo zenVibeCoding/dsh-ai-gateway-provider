@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 process.env.DSH_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'newapi-provider-levels-'));
-const { LevelCatalog, levelsFromMap, mapFromLevels, resolveReasoningLevels, gatewayReasoning, thinkingCompat, LEVELS } = await import('../lib/levels.js');
+const { LevelCatalog, levelsFromMap, mapFromLevels, resolveReasoningLevels, gatewayReasoning, thinkingCompat, compatForProtocol, LEVELS } = await import('../lib/levels.js');
 const { Catalog } = await import('../lib/catalog.js');
 
 test('gateway reasoning is unknown without explicit valid per-model metadata', () => {
@@ -295,4 +295,76 @@ test('one gateway entry carries its levels and the compat that puts them on the 
   assert.deepEqual(entry.reasoningLevels, ['low', 'medium', 'high', 'xhigh', 'max']);
   assert.equal(entry.reasoningLevelsSource, 'catalog');
   assert.deepEqual(entry.piCompat, { forceAdaptiveThinking: true });
+});
+
+test('compatForProtocol adds forceAdaptiveThinking for adaptive models routed over anthropic-messages', () => {
+  // Non-Claude model bridged over Anthropic Messages with xhigh effort (e.g. Magpie agy-cli).
+  assert.deepEqual(
+    compatForProtocol('anthropic-messages', {
+      id: 'agy-cli/gemini-4-neon',
+      upstreamModel: 'agy-cli/gemini-4-neon',
+      reasoning: true,
+      reasoningLevels: ['low', 'medium', 'high', 'xhigh'],
+      piCompat: undefined,
+    }),
+    { forceAdaptiveThinking: true },
+  );
+
+  // Adaptive family without xhigh/max (e.g. Gemini 4 Argon on /v1/messages) still gets adaptive thinking.
+  assert.deepEqual(
+    compatForProtocol('anthropic-messages', {
+      id: 'agy-cli/gemini-4-argon',
+      upstreamModel: 'agy-cli/gemini-4-argon',
+      reasoning: true,
+      reasoningLevels: ['low', 'medium', 'high'],
+      piCompat: { supportsTemperature: false },
+    }),
+    { supportsTemperature: false, forceAdaptiveThinking: true },
+  );
+
+  // Older budget-only Claude without xhigh/max keeps budget mode (no adaptive flag injected).
+  assert.equal(
+    compatForProtocol('anthropic-messages', {
+      id: 'claude-3-7-sonnet',
+      upstreamModel: 'claude-3-7-sonnet',
+      reasoning: true,
+      reasoningLevels: ['off', 'minimal', 'low', 'medium', 'high'],
+      piCompat: undefined,
+    }),
+    undefined,
+  );
+
+  // Explicit shipped forceAdaptiveThinking: false is never overridden.
+  assert.deepEqual(
+    compatForProtocol('anthropic-messages', {
+      id: 'agy-cli/gemini-4-neon',
+      upstreamModel: 'agy-cli/gemini-4-neon',
+      reasoning: true,
+      reasoningLevels: ['low', 'medium', 'high', 'xhigh'],
+      piCompat: { forceAdaptiveThinking: false },
+    }),
+    { forceAdaptiveThinking: false },
+  );
+
+  // Non-Anthropic protocols and non-reasoning models do not receive Anthropic adaptive thinking.
+  assert.equal(
+    compatForProtocol('openai-responses', {
+      id: 'codex/gpt-5.6-terra',
+      upstreamModel: 'codex/gpt-5.6-terra',
+      reasoning: true,
+      reasoningLevels: ['low', 'medium', 'high', 'xhigh', 'max'],
+      piCompat: undefined,
+    }),
+    undefined,
+  );
+  assert.equal(
+    compatForProtocol('anthropic-messages', {
+      id: 'agy-cli/gemini-4-neon',
+      upstreamModel: 'agy-cli/gemini-4-neon',
+      reasoning: false,
+      reasoningLevels: [],
+      piCompat: undefined,
+    }),
+    undefined,
+  );
 });

@@ -45,9 +45,10 @@ dsh-ai-gateway-provider
 | New API / one-api / done-hub / one-hub / Veloera / VoAPI | `GET /api/status`（`system_name`、`quota_per_unit`） | `GET /api/usage/token/` |
 | LiteLLM | `GET /key/info` 有应答 | 密钥预算（`spend` / `max_budget`） |
 | CLIProxyAPI | `GET /` 返回 `CLI Proxy API Server` | 无 |
+| Magpie | `GET /` 返回 `{ "name": "magpie", "apis": […] }` | 无 |
 | 其它任何 OpenAI 兼容网关 | `GET /v1/models` 有应答 | 无 |
 
-每个模型的协议：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、Gemini。由网关的 `supported_endpoint_types` 决定，模型编辑器里可以覆盖。
+每个模型的协议：OpenAI Chat Completions、OpenAI Responses、Anthropic Messages、Gemini。由网关的 `supported_endpoint_types` 或 `native_endpoints` 决定，模型编辑器里可以覆盖。
 
 ## 多网关，一个选择器
 
