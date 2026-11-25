@@ -4,8 +4,8 @@
 
 | 项目 | 状态 |
 | --- | --- |
-| 本地版本 / 待发布 | **0.7.4**（`package.json` 已就位，本地改动尚未发布） |
-| npm 当前版本 | **0.7.3**（`latest`），2026-11-17 发布；以 `npm view dsh-ai-gateway-provider dist-tags --json` 与 `npm view dsh-ai-gateway-provider version` 的实际结果为准 |
+| 本地版本 | **0.7.4**（已发布） |
+| npm 当前版本 | **0.7.4**（`latest`），2026-11-25 发布；以 `npm view dsh-ai-gateway-provider dist-tags --json` 与 `npm view dsh-ai-gateway-provider version` 的实际结果为准 |
 | 测试基线 | **174 项离线测试**通过（本地假网关）；每次发布前重新运行 |
 | GitHub | https://github.com/zenVibeCoding/dsh-ai-gateway-provider |
 | 插件市场 | `data/plugins/zenVibeCoding__dsh-ai-gateway-provider.yml` 已在 main；市场版本由 `probe-npm` 从 registry 读取，发版后自动跟进 |
@@ -73,8 +73,8 @@
 - [x] 2026-11-17 发布 0.7.3：registry `latest` 已指向 0.7.3，重新下载 tarball 核对 23 个文件、shasum `0f0b5ac617219c86769f428fd9aa3796b0c3e091`，内容与本地打包一致。
 - [x] Git 提交 `3614df4` 与标签 `v0.7.3` 已推送；市场条目不变，版本由每日 `probe-npm` 跟进。
 - [x] 市场侧已跟进到 0.7.3（2026-11-25 核对 `dshmarket.com/index.json`）。
-- [ ] 执行 0.7.4 发布并核对 registry 版本、shasum 与文件清单。
-- [ ] Git 提交 / 推送、`v0.7.4` 标签。
+- [x] 2026-11-25 发布 0.7.4：registry `latest` 已指向 0.7.4，重新下载 tarball 核对 23 个文件、shasum `af79a5c7520f9cd02ab0b573fa2cf32eb9ed9650`，内容与本地打包一致。
+- [x] Git 提交 `4957889` 与标签 `v0.7.4` 已推送；市场条目不变，版本由每日 `probe-npm` 跟进。
 - [ ] 市场侧跟进到 0.7.4（每日构建自动读取 registry）。
 
 ### 离线 / 打包检查
